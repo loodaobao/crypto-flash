@@ -1,7 +1,7 @@
 package config
 
 import (
-	"crypto-flash/pkg/util"
+	"crypto-flash/internal/service/util"
 	"encoding/json"
 	"io/ioutil"
 )
