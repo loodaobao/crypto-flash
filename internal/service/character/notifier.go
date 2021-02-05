@@ -2,24 +2,25 @@
 // Notifier sends messages to users. It can be used to broadcast trade signals
 // or send trade operation and ROI notifications.
 // Input: signal provider or trader
-// Output: 
-// TODO: 
+// Output:
+// TODO:
 // 1. save room ID to DB
 */
 package character
 
 import (
+	util "crypto-flash/internal/service/util"
 	"fmt"
-	"github.com/line/line-bot-sdk-go/linebot"
+
 	tg "github.com/go-telegram-bot-api/telegram-bot-api"
-	util "github.com/CheshireCatNick/crypto-flash/pkg/util"
+	"github.com/line/line-bot-sdk-go/linebot"
 )
 
 type Notifier struct {
-	tag string
+	tag        string
 	lineClient *linebot.Client
-	tgClient *tg.BotAPI
-	users map[string]int64
+	tgClient   *tg.BotAPI
+	users      map[string]int64
 }
 
 func NewNotifier(secret, accessToken, tgToken string) *Notifier {
@@ -33,10 +34,10 @@ func NewNotifier(secret, accessToken, tgToken string) *Notifier {
 	}
 	util.Success("Notifier", "auth succeeded", tgc.Self.UserName)
 	n := &Notifier{
-		tag: "Notifier",
+		tag:        "Notifier",
 		lineClient: lc,
-		tgClient: tgc,
-		users: make(map[string]int64),
+		tgClient:   tgc,
+		users:      make(map[string]int64),
 	}
 	return n
 }
@@ -80,16 +81,16 @@ func (n *Notifier) Listen() {
 			msg := tg.NewMessage(update.Message.Chat.ID, "")
 			switch update.Message.Command() {
 			case "help":
-				msg.Text = "Available commands: /start, /register, " + 
+				msg.Text = "Available commands: /start, /register, " +
 					"/emergency_kill and /status."
 			case "start":
 				user := recvMsg.From.UserName
 				chatID := recvMsg.Chat.ID
 				n.users[user] = chatID
 				util.Success(n.tag, "register", user, util.PI64(chatID))
-				msg.Text = "Welcome to Crypto Flash, " + user + 
-					". Please note that signals from this bot are " + 
-					"recommendations and you should trade on your own " + 
+				msg.Text = "Welcome to Crypto Flash, " + user +
+					". Please note that signals from this bot are " +
+					"recommendations and you should trade on your own " +
 					"responsibility. Enjoy!"
 			case "register":
 				user := recvMsg.From.UserName

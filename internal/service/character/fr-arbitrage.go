@@ -11,8 +11,9 @@ import (
 	"sort"
 	"time"
 
-	exchange "github.com/CheshireCatNick/crypto-flash/pkg/exchange"
-	util "github.com/CheshireCatNick/crypto-flash/pkg/util"
+	exchange "crypto-flash/internal/service/exchange"
+
+	util "crypto-flash/internal/service/util"
 )
 
 type future struct {

@@ -1,19 +1,22 @@
 package indicator
 
-import util "github.com/CheshireCatNick/crypto-flash/pkg/util"
-import "math"
+import (
+	"math"
+
+	util "crypto-flash/internal/service/util"
+)
 
 type ATR struct {
-	period int
+	period     int
 	prevCandle *util.Candle
-	rma *RMA
+	rma        *RMA
 }
 
-func NewATR(period int) *ATR{
+func NewATR(period int) *ATR {
 	return &ATR{
-		period: period,
+		period:     period,
 		prevCandle: nil,
-		rma: NewRMA(period),
+		rma:        NewRMA(period),
 	}
 }
 func (atr *ATR) CalculateATR(candles []*util.Candle) []float64 {
@@ -22,7 +25,7 @@ func (atr *ATR) CalculateATR(candles []*util.Candle) []float64 {
 	for _, candle := range candles {
 		result = append(result, tatr.Update(candle))
 	}
-	return result;
+	return result
 }
 func (atr *ATR) updateTR(candle *util.Candle) float64 {
 	if atr.prevCandle == nil {

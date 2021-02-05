@@ -1,8 +1,8 @@
-/* 
+/*
 // Ftx implements exchange API for FTX exchange.
 // Input: real exchange, trader
 // Output: real exchange, signal provider or indicator
-// TODO: 
+// TODO:
 // 1. getHistoryCandles: if candles >= 5000, request many times and concat result
 // 3. getPosition
 // 4. make conditional order
@@ -12,28 +12,29 @@ package exchange
 
 import (
 	"fmt"
-	"time"
 	"net/http"
-	util "github.com/CheshireCatNick/crypto-flash/pkg/util"
+	"time"
+
+	util "crypto-flash/internal/service/util"
 )
 
 const (
-	host string = "https://ftx.com"
-	marketAPI string = "/api/markets"
-	walletAPI string = "/api/wallet/balances"
-	orderAPI string = "/api/orders"
-	condOrderAPI string = "/api/conditional_orders"
-	positionAPI string = "/api/positions"
-	futureAPI string = "/api/futures"
+	host           string = "https://ftx.com"
+	marketAPI      string = "/api/markets"
+	walletAPI      string = "/api/wallet/balances"
+	orderAPI       string = "/api/orders"
+	condOrderAPI   string = "/api/conditional_orders"
+	positionAPI    string = "/api/positions"
+	futureAPI      string = "/api/futures"
 	fundingRateAPI string = "/api/funding_rates"
 )
 
 type FTX struct {
-	tag string
-	key string
+	tag        string
+	key        string
 	subAccount string
-	secret string
-	Fee float64
+	secret     string
+	Fee        float64
 	// save all candles data from different resolutions and markets
 	candleData map[string][]*util.Candle
 	candleSubs map[string][]chan<- *util.Candle
@@ -42,16 +43,17 @@ type FTX struct {
 
 func NewFTX(key, secret, subAccount string) *FTX {
 	return &FTX{
-		key: key,
-		secret: secret,
+		key:        key,
+		secret:     secret,
 		subAccount: subAccount,
-		Fee: 0.0007,
-		tag: "FTX",
+		Fee:        0.0007,
+		tag:        "FTX",
 		candleData: make(map[string][]*util.Candle),
 		candleSubs: make(map[string][]chan<- *util.Candle),
 		restClient: util.NewRestClient(),
 	}
 }
+
 // depth 20 ~ 100
 func (ftx *FTX) GetOrderbook(market string, depth int) *util.Orderbook {
 	type orderbookRes struct {
@@ -60,9 +62,9 @@ func (ftx *FTX) GetOrderbook(market string, depth int) *util.Orderbook {
 	}
 	type res struct {
 		Success bool
-		Result orderbookRes
+		Result  orderbookRes
 	}
-	url := host + marketAPI + 
+	url := host + marketAPI +
 		fmt.Sprintf("/%s/orderbook?depth=%d", market, depth)
 	var resObj res
 	ftx.restClient.Get(url, nil, nil, &resObj)
@@ -91,8 +93,7 @@ func (ftx *FTX) GetHistoryCandles(market string, resolution int,
 	}
 	var candles []*util.Candle
 	maxReqInterval := int64(resolution * 5000)
-	for curStartTime := startTime; curStartTime < endTime; 
-			curStartTime += maxReqInterval {
+	for curStartTime := startTime; curStartTime < endTime; curStartTime += maxReqInterval {
 		curEndTime := curStartTime + maxReqInterval
 		if curEndTime > endTime {
 			curEndTime = endTime
@@ -110,18 +111,19 @@ func (ftx *FTX) GetHistoryCandles(market string, resolution int,
 	return candles
 }
 func sleepToNextCandle(resolution int64) {
-	timeToNextCandle := resolution - time.Now().Unix() % resolution
+	timeToNextCandle := resolution - time.Now().Unix()%resolution
 	sleepDuration := util.Duration{Second: timeToNextCandle + 1}
 	time.Sleep(sleepDuration.GetTimeDuration())
 }
+
 // resolution can be 15, 60, 300, 900, 3600, 14400, 86400
 func (ftx *FTX) SubCandle(
-		market string, resolution int, c chan<- *util.Candle) {
+	market string, resolution int, c chan<- *util.Candle) {
 	dataID := fmt.Sprintf("%s-%d", market, resolution)
 	if _, exist := ftx.candleData[dataID]; exist {
 		// someone already sub this data
 		ftx.candleSubs[dataID] = append(ftx.candleSubs[dataID], c)
-		return;
+		return
 	}
 	ftx.candleData[dataID] = []*util.Candle{}
 	ftx.candleSubs[dataID] = []chan<- *util.Candle{}
@@ -131,12 +133,12 @@ func (ftx *FTX) SubCandle(
 	sleepToNextCandle(resolution64)
 	for {
 		now := time.Now().Unix()
-		startTime := now - resolution64 * 2 + 1
+		startTime := now - resolution64*2 + 1
 		endTime := now - resolution64
 		candles := ftx.GetHistoryCandles(
 			"BTC-PERP", resolution, startTime, endTime)
 		for _, c := range ftx.candleSubs[dataID] {
-			c<-candles[0]
+			c <- candles[0]
 		}
 		ftx.candleData[dataID] = append(ftx.candleData[dataID], candles...)
 		sleepToNextCandle(resolution64)
@@ -145,7 +147,7 @@ func (ftx *FTX) SubCandle(
 func (ftx *FTX) genAuthHeader(method, path, body string) *http.Header {
 	header := http.Header(make(map[string][]string))
 	header.Add("FTX-KEY", ftx.key)
-	ts := fmt.Sprintf("%d", time.Now().UnixNano() / 1000000)
+	ts := fmt.Sprintf("%d", time.Now().UnixNano()/1000000)
 	header.Add("FTX-TS", ts)
 	payload := ts + method + path + body
 	signature := util.HMac(payload, ftx.secret)
@@ -157,13 +159,13 @@ func (ftx *FTX) genAuthHeader(method, path, body string) *http.Header {
 }
 func (ftx *FTX) GetWallet() *util.Wallet {
 	type coin struct {
-		Coin string
-		Free float64
+		Coin  string
+		Free  float64
 		Total float64
 	}
 	type res struct {
 		Success bool
-		Result []coin
+		Result  []coin
 	}
 	url := host + walletAPI
 	header := ftx.genAuthHeader("GET", walletAPI, "")
@@ -177,24 +179,24 @@ func (ftx *FTX) GetWallet() *util.Wallet {
 }
 func (ftx *FTX) GetPosition(market string) *util.Position {
 	type resPos struct {
-		Cost float64
-		EntryPrice float64
-		EstimatedLiquidationPrice float64
-		Future string
-		InitialMarginRequirement float64
-		LongOrderSize float64
+		Cost                         float64
+		EntryPrice                   float64
+		EstimatedLiquidationPrice    float64
+		Future                       string
+		InitialMarginRequirement     float64
+		LongOrderSize                float64
 		MaintenanceMarginRequirement float64
-		NetSize float64
-		OpenSize float64
-		RealizedPnl float64
-		ShortOrderSize float64
-		Side string
-		Size float64
-		UnrealizedPnl float64
+		NetSize                      float64
+		OpenSize                     float64
+		RealizedPnl                  float64
+		ShortOrderSize               float64
+		Side                         string
+		Size                         float64
+		UnrealizedPnl                float64
 	}
 	type res struct {
 		Success bool
-		Result []resPos
+		Result  []resPos
 	}
 	url := host + positionAPI
 	header := ftx.genAuthHeader("GET", positionAPI, "")
@@ -213,9 +215,9 @@ func (ftx *FTX) GetPosition(market string) *util.Position {
 				side = "long"
 			}
 			return &util.Position{
-				Market: pos.Future,
-				Side: side,
-				Size: pos.Size,
+				Market:    pos.Future,
+				Side:      side,
+				Size:      pos.Size,
 				OpenPrice: pos.EntryPrice,
 			}
 		}
@@ -224,44 +226,44 @@ func (ftx *FTX) GetPosition(market string) *util.Position {
 }
 func (ftx *FTX) MakeOrder(order *util.Order) int64 {
 	type result struct {
-		CreatedAt string
+		CreatedAt  string
 		FilledSize float64
-		Future string
-		Id int64
-		Market string
-		Price float64
+		Future     string
+		Id         int64
+		Market     string
+		Price      float64
 		RemainSize float64
-		Side string
-		Size float64
-		Status string
-		Type string
+		Side       string
+		Size       float64
+		Status     string
+		Type       string
 		ReduceOnly bool
-		Ioc bool
-		PostOnly bool
-		ClientId string
+		Ioc        bool
+		PostOnly   bool
+		ClientId   string
 		// for conditional order
-		TriggerPrice float64
-		OrderPrice float64
-		TriggeredAt string
-		OrderType string
+		TriggerPrice     float64
+		OrderPrice       float64
+		TriggeredAt      string
+		OrderType        string
 		RetryUntilFilled bool
 	}
 	type res struct {
 		Success bool
-		Result result
+		Result  result
 	}
 	var api string
 	if order.Type == "market" || order.Type == "limit" {
 		api = orderAPI
-	} else if order.Type == "stop" || order.Type == "trailingStop" || 
-			order.Type == "takeProfit" {
+	} else if order.Type == "stop" || order.Type == "trailingStop" ||
+		order.Type == "takeProfit" {
 		api = condOrderAPI
 	}
 	url := host + api
 	orderStr := util.GetJSONString(order.CreateMap())
 	header := ftx.genAuthHeader("POST", api, orderStr)
 	var resObj res
-	ftx.restClient.Post(url, header, 
+	ftx.restClient.Post(url, header,
 		util.GetJSONBuffer(order.CreateMap()), &resObj)
 	if !resObj.Success {
 		fmt.Println(resObj)
@@ -278,7 +280,7 @@ func (ftx *FTX) CancelAllOrder(market string) {
 	}
 	type res struct {
 		Success bool
-		Result string
+		Result  string
 	}
 	url := host + orderAPI
 	header := ftx.genAuthHeader("DELETE", orderAPI, util.GetJSONString(reqBody))
@@ -289,19 +291,19 @@ func (ftx *FTX) CancelAllOrder(market string) {
 		util.Error(ftx.tag, "Cancel all order error")
 	}
 }
-func (ftx *FTX) GetFundingRates(startTime, endTime int64, 
-		future string) []float64 {
+func (ftx *FTX) GetFundingRates(startTime, endTime int64,
+	future string) []float64 {
 	type result struct {
 		Future string
-		Rate float64
-		Time string
+		Rate   float64
+		Time   string
 	}
 	type res struct {
 		Success bool
-		Result []result
+		Result  []result
 	}
 	url := host + fundingRateAPI
-	url += fmt.Sprintf("?start_time=%d&end_time=%d&future=%s", 
+	url += fmt.Sprintf("?start_time=%d&end_time=%d&future=%s",
 		startTime, endTime, future)
 	req := make(map[string]interface{})
 	req["start_time"] = startTime
@@ -319,15 +321,17 @@ func (ftx *FTX) GetFundingRates(startTime, endTime int64,
 	}
 	return rates
 }
+
 type futureResult struct {
-	Ask float64
-	Bid float64
+	Ask   float64
+	Bid   float64
 	Index float64
 }
+
 func (ftx *FTX) GetFuture(future string) futureResult {
 	type res struct {
 		Success bool
-		Result futureResult
+		Result  futureResult
 	}
 	url := host + futureAPI + "/" + future
 	var resObj res
@@ -338,14 +342,16 @@ func (ftx *FTX) GetFuture(future string) futureResult {
 	}
 	return resObj.Result
 }
+
 type futureStatsResult struct {
 	NextFundingRate float64
 	NextFundingTime string
 }
+
 func (ftx *FTX) GetFutureStats(future string) futureStatsResult {
 	type res struct {
 		Success bool
-		Result futureStatsResult
+		Result  futureStatsResult
 	}
 	url := host + futureAPI + "/" + future + "/stats"
 	var resObj res
