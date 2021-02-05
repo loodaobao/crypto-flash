@@ -12,9 +12,10 @@ import (
 	"sync"
 	"time"
 
-	character "github.com/CheshireCatNick/crypto-flash/pkg/character"
-	exchange "github.com/CheshireCatNick/crypto-flash/pkg/exchange"
-	util "github.com/CheshireCatNick/crypto-flash/pkg/util"
+	character "crypto-flash/internal/service/character"
+	exchange "crypto-flash/internal/service/exchange"
+
+	util "crypto-flash/internal/service/util"
 
 	config "crypto-flash/config"
 )
