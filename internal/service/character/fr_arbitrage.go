@@ -87,6 +87,7 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier) *FRArb {
 		freeBalance: 1000000,
 	}
 }
+
 func (fra *FRArb) getFutureName(future string, isPerp bool) string {
 	if isPerp {
 		return future + "-PERP"
@@ -94,6 +95,7 @@ func (fra *FRArb) getFutureName(future string, isPerp bool) string {
 		return future + "-" + fra.quarterContractName
 	}
 }
+
 func (fra *FRArb) Backtest(startTime, endTime int64) float64 {
 	/*
 		candles :=
@@ -147,6 +149,7 @@ func (fra *FRArb) genSignal(future *future) {
 		}
 	}
 }
+
 func (fra *FRArb) sortApr() []string {
 	type kv struct {
 		k string
@@ -165,6 +168,7 @@ func (fra *FRArb) sortApr() []string {
 	}
 	return names
 }
+
 func (fra *FRArb) sendReport() {
 	if fra.notifier == nil {
 		return
@@ -193,6 +197,7 @@ func (fra *FRArb) sendReport() {
 	msg += fmt.Sprintf("Annualized Return: %.2f%%", ar*100)
 	fra.notifier.Broadcast(fra.tag, msg)
 }
+
 func (fra *FRArb) startPair(future *future, ratio float64) {
 	perpSide := "long"
 	//quarterSide := "short"
@@ -233,6 +238,7 @@ func (fra *FRArb) startPair(future *future, ratio float64) {
 				future.name, future.size))
 	}
 }
+
 func (fra *FRArb) stopPair(future *future) {
 	/*
 		fra.sendSignal(&util.Signal{
@@ -280,6 +286,7 @@ func (fra *FRArb) stopPair(future *future) {
 	fra.freeBalance += pairPortion
 	future.size = 0
 }
+
 func (fra *FRArb) Start() {
 	// get previous funding rate
 	now := time.Now().Unix()
