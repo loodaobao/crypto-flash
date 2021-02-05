@@ -1,17 +1,19 @@
 package util
 
-import "encoding/json"
-import "net/http"
-import "io"
+import (
+	"encoding/json"
+	"io"
+	"net/http"
+)
 
 type RestClient struct {
-	tag string
+	tag    string
 	client *http.Client
 }
 
 func NewRestClient() *RestClient {
 	return &RestClient{
-		tag: "RestClient",
+		tag:    "RestClient",
 		client: &http.Client{},
 	}
 }
@@ -27,7 +29,7 @@ func (rc *RestClient) do(req *http.Request, v interface{}) {
 	}
 }
 func (rc *RestClient) Get(url string, header *http.Header, body io.Reader,
-		v interface{}) {
+	v interface{}) {
 	req, err := http.NewRequest("GET", url, body)
 	if err != nil {
 		Error(rc.tag, err.Error())
@@ -39,8 +41,8 @@ func (rc *RestClient) Get(url string, header *http.Header, body io.Reader,
 	req.Header.Add("Accept", "application/json")
 	rc.do(req, v)
 }
-func (rc *RestClient) Post(url string, header *http.Header, body io.Reader, 
-		v interface{}) {
+func (rc *RestClient) Post(url string, header *http.Header, body io.Reader,
+	v interface{}) {
 	req, err := http.NewRequest("POST", url, body)
 	if err != nil {
 		Error(rc.tag, err.Error())
@@ -52,8 +54,8 @@ func (rc *RestClient) Post(url string, header *http.Header, body io.Reader,
 	req.Header.Add("Accept", "application/json")
 	rc.do(req, v)
 }
-func (rc *RestClient) Delete(url string, header *http.Header, body io.Reader, 
-		v interface{}) {
+func (rc *RestClient) Delete(url string, header *http.Header, body io.Reader,
+	v interface{}) {
 	req, err := http.NewRequest("DELETE", url, body)
 	if err != nil {
 		Error(rc.tag, err.Error())

@@ -1,7 +1,9 @@
 package util
 
-import "encoding/json"
-import "bytes"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 func getJSONBytes(s interface{}) []byte {
 	b, err := json.Marshal(s)
