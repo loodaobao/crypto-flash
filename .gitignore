@@ -1,3 +1,10 @@
 config.json
 .DS_Store
 backtest.png
+
+.env
+vendor/*
+!vendor/vendor.json
+coverage.out
+
+main
