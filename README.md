@@ -46,6 +46,13 @@ $ go run main.go
 * Reference:
     - https://github.com/cosmtrek/air
 
+#### Install Air
+
+```sh
+$ # binary will be $(go env GOPATH)/bin/air
+curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+```
+
 ```sh
 # Run air with your config. If file name is `.air.toml`, just run `air`.
 $ air
