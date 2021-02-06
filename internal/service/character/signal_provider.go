@@ -139,3 +139,6 @@ func (sp *SignalProvider) sendSignal(s *util.Signal) {
 func (sp *SignalProvider) SubSignal(signalChan chan<- *util.Signal) {
 	sp.chans = append(sp.chans, signalChan)
 }
+func (sp *SignalProvider) HasSubscriber() bool {
+	return len(sp.chans) > 0
+}
