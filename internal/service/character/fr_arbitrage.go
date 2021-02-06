@@ -60,12 +60,12 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier) *FRArb {
 		},
 		ftx: ftx,
 		// config
-		quarterContractName: "0626",
+		quarterContractName: "0326",
 		updatePeriod:        15,
 		futureNames: []string{
 			"BTC", "ETH", "LTC", "LINK", "DOGE", "ADA", "AAVE", "XRP", "DOT", "SUSHI",
 			"DEFI", "BCH", "1INCH", "BNB", "SNX", "ALPHA", "EOS", "UNI", "ATOM", "YFI",
-			"GRT", "ALGO", "THETA", "SXP", "XLM", "COMP" , "TRX", "SOL",
+			"GRT", "ALGO", "THETA", "SXP", "XLM", "COMP", "TRX", "SOL",
 			"BSV", "KNC", "MKR", "CRV", "XTZ", "FTT", "BRZ", "RUNE", "FIL", "BAND",
 			"MATIC", "BAL", "OMG", "RSR", "WAVES", "REN", "VET", "AVAX", "ZEC", "TOMO",
 			"ETC", "SHIT", "FLM", "ALT", "CREAM", "KSM", "YFII", "EXCH", "MID", "USDT",
@@ -76,9 +76,11 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier) *FRArb {
 		},
 		// perp and quarter have 1/2 pairPortion and leverage
 		leverage: 5,
-		// 5 consecutive hours of positive/negative funding rate
-		longTime:     1 * 24,
-		aprThreshold: 0.3,
+		// consecutive hours of positive/negative funding rate
+		longTime: 1 * 24,
+		// start arbitrage if estApr is more then this threshold
+		aprThreshold: 1,
+		// previous data we used to calculate estApr
 		prevRateDays: 7,
 		// minimum USD amount to start a pair (perp + quarter)
 		minAmount: 10,
@@ -113,29 +115,28 @@ func (fra *FRArb) Backtest(startTime, endTime int64) float64 {
 
 func (fra *FRArb) genSignal(future *future) {
 	fundingRates := future.fundingRates
-	util.Info(fra.tag, future.name,
-		fmt.Sprintf("latestFundingRate: %f", fundingRates[0]))
+	util.Info(fra.tag, future.name, fmt.Sprintf("latestFundingRate: %f", fundingRates[0]))
+	util.Info(fra.tag, future.name, fmt.Sprintf("equivalent apr: %.2f%%", fundingRates[0]*365*24*100))
 	future.consCount = 1
-	future.estApr = 1 + math.Abs(fundingRates[0])
 	for i := 1; i < len(future.fundingRates); i++ {
-		// TODO: calculate actual earnings in this interval
 		if fundingRates[i]*fundingRates[0] <= 0 {
 			break
 		}
-		future.estApr *= 1 + math.Abs(fundingRates[i])
-		future.consCount += 1
+		future.consCount++
 	}
-	toAnnual := float64(365*24) / float64(future.consCount)
-	future.estApr = (future.estApr - 1) * toAnnual * fra.leverage / 2
-	util.Info(fra.tag, future.name,
-		fmt.Sprintf("estApr: %.2f%%", future.estApr*100))
-	if future.consCount >= fra.longTime && future.estApr >= fra.aprThreshold {
+	totalRate := 0.0
+	for _, rate := range fundingRates {
+		totalRate += rate
+	}
+	toAnnual := float64(365*24) / float64(len(fundingRates))
+	future.estApr = totalRate * toAnnual * fra.leverage / 2
+	util.Info(fra.tag, future.name, fmt.Sprintf("estApr: %.2f%%", future.estApr*100))
+	if future.estApr >= fra.aprThreshold {
 		if future.size == 0 {
 			util.Info(fra.tag, "profitable: "+future.name)
 			if fra.notifier != nil {
 				fra.notifier.Broadcast(fra.tag,
-					"profitable: "+future.name+"\n"+
-						fmt.Sprintf("estApr: %.2f%%", future.estApr*100))
+					"profitable: "+future.name+"\n"+fmt.Sprintf("estApr: %.2f%%", future.estApr*100))
 			}
 			fra.startFutures = append(fra.startFutures, future)
 		}
@@ -143,8 +144,7 @@ func (fra *FRArb) genSignal(future *future) {
 		if future.size != 0 {
 			util.Info(fra.tag, "not profitable: "+future.name)
 			if fra.notifier != nil {
-				fra.notifier.Broadcast(fra.tag,
-					"not profitable: "+future.name)
+				fra.notifier.Broadcast(fra.tag, "not profitable: "+future.name)
 			}
 			fra.stopFutures = append(fra.stopFutures, future)
 		}
