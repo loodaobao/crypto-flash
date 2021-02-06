@@ -342,7 +342,7 @@ func (fra *FRArb) Start() {
 			}
 		}
 		// 8 hour just passed, generate report
-		if true || now%(8*60*60) == fra.updatePeriod {
+		if now%(8*60*60) == fra.updatePeriod {
 			fra.sendReport()
 		}
 		timeToNextCycle := fra.updatePeriod - time.Now().Unix()%fra.updatePeriod
