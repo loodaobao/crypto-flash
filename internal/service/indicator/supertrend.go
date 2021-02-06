@@ -1,29 +1,31 @@
 package indicator
 
-import util "github.com/CheshireCatNick/crypto-flash/pkg/util"
-import "math"
+import (
+	util "crypto-flash/internal/service/util"
+	"math"
+)
 
 type Supertrend struct {
-	Tag string
-	period int
-	multiplier float64
-	atr *ATR
-	prevAtr float64
-	prevFinalUpperBand float64
-	prevFinalLowerBand float64
-	prevTrend string
-	prevCandle *util.Candle
+	Tag                       string
+	period                    int
+	multiplier                float64
+	atr                       *ATR
+	prevAtr                   float64
+	prevFinalUpperBand        float64
+	prevFinalLowerBand        float64
+	prevTrend                 string
+	prevCandle                *util.Candle
 	prevPredictFinalUpperBand float64
 	prevPredictFinalLowerBand float64
-	prevPredictTrend string
+	prevPredictTrend          string
 }
 
 func NewSupertrend(multiplier float64, period int) *Supertrend {
 	return &Supertrend{
-		Tag: "Supertrend",
-		period: period,
+		Tag:        "Supertrend",
+		period:     period,
 		multiplier: multiplier,
-		atr: NewATR(period),
+		atr:        NewATR(period),
 		prevCandle: nil,
 	}
 }
@@ -33,16 +35,16 @@ func (st *Supertrend) CalculateSupertrend(candles []*util.Candle) []float64 {
 	for _, candle := range candles {
 		result = append(result, tst.Update(candle))
 	}
-	return result;
+	return result
 }
 func (st *Supertrend) Update(candle *util.Candle) float64 {
 	atr := st.atr.Update(candle)
-	basicUpperBand := candle.GetAvg() + st.multiplier * atr
-	basicLowerBand := candle.GetAvg() - st.multiplier * atr
+	basicUpperBand := candle.GetAvg() + st.multiplier*atr
+	basicLowerBand := candle.GetAvg() - st.multiplier*atr
 	var finalUpperBand, finalLowerBand, supertrend float64
 	if st.prevCandle == nil {
 		finalUpperBand = basicUpperBand
-	} else if basicUpperBand < st.prevFinalUpperBand || 
+	} else if basicUpperBand < st.prevFinalUpperBand ||
 		st.prevCandle.Close > st.prevFinalUpperBand {
 		// price is falling or in up trend, adjust upperband
 		finalUpperBand = basicUpperBand
@@ -79,9 +81,9 @@ func (st *Supertrend) Update(candle *util.Candle) float64 {
 	} else {
 		// final lower band < close < final upper band
 		// keep previous trend
-		if (st.prevTrend == "up") {
+		if st.prevTrend == "up" {
 			supertrend = finalLowerBand
-		} else if (st.prevTrend == "down") {
+		} else if st.prevTrend == "down" {
 			supertrend = finalUpperBand
 		} else {
 			supertrend = -1
@@ -95,17 +97,18 @@ func (st *Supertrend) Update(candle *util.Candle) float64 {
 	st.prevAtr = atr
 	return supertrend
 }
+
 // predict works similar to update except it does not update internal state
 // it predicts larger candle future supertrend by smaller candle
 // should not use atr calculate from smaller candle to avoid bias
 func (st *Supertrend) Predict(candle *util.Candle) float64 {
 	atr := math.Max(st.atr.Predict(candle), st.prevAtr)
-	basicUpperBand := candle.GetAvg() + st.multiplier * atr
-	basicLowerBand := candle.GetAvg() - st.multiplier * atr
+	basicUpperBand := candle.GetAvg() + st.multiplier*atr
+	basicLowerBand := candle.GetAvg() - st.multiplier*atr
 	var finalUpperBand, finalLowerBand, supertrend float64
 	if st.prevCandle == nil {
 		finalUpperBand = basicUpperBand
-	} else if basicUpperBand < st.prevPredictFinalUpperBand || 
+	} else if basicUpperBand < st.prevPredictFinalUpperBand ||
 		st.prevCandle.Close > st.prevPredictFinalUpperBand {
 		// price is falling or in up trend, adjust upperband
 		finalUpperBand = basicUpperBand
@@ -140,9 +143,9 @@ func (st *Supertrend) Predict(candle *util.Candle) float64 {
 	} else {
 		// final lower band < close < final upper band
 		// keep previous trend
-		if (st.prevPredictTrend == "up") {
+		if st.prevPredictTrend == "up" {
 			supertrend = finalLowerBand
-		} else if (st.prevPredictTrend == "down") {
+		} else if st.prevPredictTrend == "down" {
 			supertrend = finalUpperBand
 		} else {
 			supertrend = -1

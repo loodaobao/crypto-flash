@@ -8,67 +8,43 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	util "github.com/CheshireCatNick/crypto-flash/pkg/util"
-	"time"
-	character "github.com/CheshireCatNick/crypto-flash/pkg/character"
-	exchange "github.com/CheshireCatNick/crypto-flash/pkg/exchange"
 	"sync"
+	"time"
+
+	character "crypto-flash/internal/service/character"
+	exchange "crypto-flash/internal/service/exchange"
+
+	util "crypto-flash/internal/service/util"
+
+	config "crypto-flash/config"
 )
-const version = "3.4.2-beta"
-const update = "1. Add funding rate arbitrage provider for simulation test.\n" +
-	"2. Funding pool logic test.\n" +
-	"3. Funding rate arbitrage profit calculation includes trading fee and hedge profit (or cost)."
-const tag = "Crypto Flash"
 
-type bot struct {
-	Owner string
-	Key string
-	Secret string
-	SubAccount string
-	Telegram_Id int64
-	Strategy string
-}
-type lineConfig struct {
-	Channel_Secret string
-	Channel_Access_Token string
-}
-type config struct {
-	Mode string
-	Notify bool
-	Bots []bot
-	Line lineConfig
-	Telegram string
-}
-
-func loadConfig(fileName string) config {
-	var c config
-	bytes, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		util.Error(tag, err.Error())
-	}
-	json.Unmarshal(bytes, &c)
-	return c
-}
+const (
+	version = "3.4.2-beta"
+	update  = "1. Add funding rate arbitrage provider for simulation test.\n" +
+		"2. Funding pool logic test.\n" +
+		"3. Funding rate arbitrage profit calculation includes trading fee and hedge profit (or cost)."
+	tag = "Crypto Flash"
+)
 
 func main() {
 	var wg sync.WaitGroup
-	config := loadConfig("config.json")
 	fmt.Printf("Crypto Flash v%s initialized. Update: \n%s\n", version, update)
-	
+
+	config := config.Load("config.json", tag)
+
 	var n *character.Notifier
 	if config.Notify && config.Mode != "backtest" {
-		n = character.NewNotifier(config.Line.Channel_Secret, 
-			config.Line.Channel_Secret, config.Telegram)
+		n = character.NewNotifier(config.Line.ChannelSecret,
+			config.Line.ChannelSecret, config.Telegram)
 		for _, bot := range config.Bots {
-			n.AddUser(bot.Owner, bot.Telegram_Id)
+			n.AddUser(bot.Owner, bot.TelegramID)
 		}
 		wg.Add(1)
 		go n.Listen()
-		n.Broadcast(tag, 
-			fmt.Sprintf("Crypto Flash v%s initialized. Update: \n%s", 
+		n.Broadcast(tag,
+			fmt.Sprintf("Crypto Flash v%s initialized. Update: \n%s",
 				version, update))
 	} else {
 		n = nil
@@ -98,11 +74,11 @@ func main() {
 	} else if config.Mode == "backtest" {
 		//endTime, _ := time.Parse(time.RFC3339, "2019-12-01T05:00:00+00:00")
 		endTime := time.Now()
-		d := util.Duration{ Day: -60 }
+		d := util.Duration{Day: -60}
 		startTime := endTime.Add(d.GetTimeDuration())
 		roi := rs.Backtest(startTime.Unix(), endTime.Unix())
 		annual := util.CalcAnnualFromROI(roi, -d.GetTimeDuration().Seconds())
-		fmt.Printf("Annual: %.2f%%", annual * 100)
+		fmt.Printf("Annual: %.2f%%", annual*100)
 	}
 	wg.Wait()
 }

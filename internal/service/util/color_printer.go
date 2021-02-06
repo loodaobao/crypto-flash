@@ -1,17 +1,20 @@
 package util
 
-import color "github.com/fatih/color"
-import "fmt"
-import "time"
+import (
+	"fmt"
+	"time"
+
+	color "github.com/fatih/color"
+)
 
 const debug = true
 
 var (
-	Red = color.RedString
-	Blue = color.HiBlueString
-	Green = color.GreenString
+	Red    = color.RedString
+	Blue   = color.HiBlueString
+	Green  = color.GreenString
 	Yellow = color.YellowString
-	Cyan = color.CyanString
+	Cyan   = color.CyanString
 )
 
 func PrintRed(s string) {
@@ -20,6 +23,7 @@ func PrintRed(s string) {
 func PrintGreen(s string) {
 	fmt.Println(Green(s))
 }
+
 // parse
 func PF64(n float64) string {
 	return fmt.Sprintf("%.2f", n)
@@ -46,7 +50,7 @@ func print(color string, s ...string) {
 		tag = fmt.Sprintf("%s", Yellow(s[0]))
 	}
 	loc, _ := time.LoadLocation("Asia/Taipei")
-	result := fmt.Sprintf("[%s] [%s]", 
+	result := fmt.Sprintf("[%s] [%s]",
 		tag, Cyan(time.Now().In(loc).Format("1/2 15:04:05")))
 	for i := 1; i < len(s); i++ {
 		result += " " + s[i]

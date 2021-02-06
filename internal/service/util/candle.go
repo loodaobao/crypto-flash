@@ -1,7 +1,9 @@
 package util
 
-import "fmt"
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type Candle struct {
 	Close     float64
@@ -11,25 +13,26 @@ type Candle struct {
 	StartTime string
 	Volume    float64
 }
+
 func NewCandle(o, h, l, c, v float64, st string) *Candle {
 	loc, _ := time.LoadLocation("Asia/Taipei")
 	candleTime, _ := time.Parse(time.RFC3339, st)
-	return &Candle{ 
-		Close: c, 
-		High: h,
-		Low: l,
-		Open: o,
-		Volume: v,
+	return &Candle{
+		Close:     c,
+		High:      h,
+		Low:       l,
+		Open:      o,
+		Volume:    v,
 		StartTime: candleTime.In(loc).String(),
 	}
 }
 func (candle *Candle) Copy() *Candle {
-	return &Candle{ 
-		Close: candle.Close, 
-		High: candle.High,
-		Low: candle.Low,
-		Open: candle.Open,
-		Volume: candle.Volume,
+	return &Candle{
+		Close:     candle.Close,
+		High:      candle.High,
+		Low:       candle.Low,
+		Open:      candle.Open,
+		Volume:    candle.Volume,
 		StartTime: candle.StartTime,
 	}
 }
@@ -56,6 +59,6 @@ func (candle *Candle) String() string {
 	} else {
 		color = Red
 	}
-	return color(fmt.Sprintf("o: %.2f, h: %.2f, l: %.2f, c: %.2f, time: %s", 
+	return color(fmt.Sprintf("o: %.2f, h: %.2f, l: %.2f, c: %.2f, time: %s",
 		candle.Open, candle.High, candle.Low, candle.Close, candle.StartTime))
 }

@@ -3,16 +3,16 @@ package util
 import "fmt"
 
 type Position struct {
-	Market string
-	Side string
-	Size float64
+	Market    string
+	Side      string
+	Size      float64
 	OpenPrice float64
 }
 
 const tag = "Position"
 
 func NewPosition(side string, size float64, openPrice float64) *Position {
-	return &Position{ Side: side, Size: size, OpenPrice: openPrice }
+	return &Position{Side: side, Size: size, OpenPrice: openPrice}
 }
 func (pos *Position) Close(closePrice float64) float64 {
 	roi := (closePrice - pos.OpenPrice) / pos.OpenPrice
@@ -26,7 +26,7 @@ func (pos *Position) Close(closePrice float64) float64 {
 		roiStr = Red(roiStr)
 	}
 	Info(tag, fmt.Sprintf(
-		"close %s, open price: %.2f, current price: %.2f, ROI: %s", 
+		"close %s, open price: %.2f, current price: %.2f, ROI: %s",
 		pos.Side, pos.OpenPrice, closePrice, roiStr))
 	return roi
 }
