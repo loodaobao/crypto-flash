@@ -26,8 +26,8 @@ $ zsh < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/bin
 
 ```sh
 # Install Go using binary
-$ gvm install go1.14 -B
-$ gvm use go1.14
+$ gvm install go1.15 -B
+$ gvm use go1.15
 ```
 
 3. Download related pacakges
