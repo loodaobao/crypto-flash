@@ -23,21 +23,25 @@ type Notifier struct {
 	users      map[string]int64
 }
 
-func NewNotifier(secret, accessToken, tgToken string) *Notifier {
-	lc, err := linebot.New(secret, accessToken)
-	if err != nil {
-		util.Error("Notifier", err.Error())
-	}
-	tgc, err := tg.NewBotAPI(tgToken)
-	if err != nil {
-		util.Error("Notifier", err.Error())
-	}
-	util.Success("Notifier", "auth succeeded", tgc.Self.UserName)
+func NewNotifier(lineSecret, lineAccessToken, tgToken string) *Notifier {
 	n := &Notifier{
 		tag:        "Notifier",
-		lineClient: lc,
-		tgClient:   tgc,
 		users:      make(map[string]int64),
+	}
+	if lineSecret != "" && lineAccessToken != "" {
+		lc, err := linebot.New(lineSecret, lineAccessToken)
+		if err != nil {
+			util.Error("Notifier", err.Error())
+		}
+		n.lineClient = lc
+	}
+	if tgToken != "" {
+		tgc, err := tg.NewBotAPI(tgToken)
+		if err != nil {
+			util.Error("Notifier", err.Error())
+		}
+		util.Success("Notifier", "auth succeeded", tgc.Self.UserName)
+		n.tgClient = tgc
 	}
 	return n
 }

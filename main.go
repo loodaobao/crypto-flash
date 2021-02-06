@@ -52,7 +52,15 @@ func main() {
 	ftx := exchange.NewFTX("", "", "")
 	rs := character.NewResTrend(ftx, n)
 	fra := character.NewFRArb(ftx, n)
+	startSignalProvider := func() {
+		go rs.Start()
+		wg.Add(1)
+		go fra.Start()
+		wg.Add(1)
+	}
 	if config.Mode == "trade" {
+		// TODO: each trader should have its own signal provider
+		// or we should merge trader with exchange
 		for _, bot := range config.Bots {
 			if bot.Key == "" || bot.Secret == "" {
 				continue
@@ -60,17 +68,17 @@ func main() {
 			ftx := exchange.NewFTX(bot.Key, bot.Secret, bot.SubAccount)
 			trader := character.NewTrader(bot.Owner, ftx, n)
 			signalChan := make(chan *util.Signal)
-			rs.SubSignal(signalChan)
+			if bot.Strategy == "fr_arbitrage" {
+				fra.SubSignal(signalChan)
+			} else if bot.Strategy == "res_trend" {
+				rs.SubSignal(signalChan)
+			}
 			wg.Add(1)
 			go trader.Start(signalChan)
 		}
-		wg.Add(2)
-		go rs.Start()
-		go fra.Start()
+		startSignalProvider()
 	} else if config.Mode == "notify" {
-		wg.Add(2)
-		go rs.Start()
-		go fra.Start()
+		startSignalProvider()
 	} else if config.Mode == "backtest" {
 		//endTime, _ := time.Parse(time.RFC3339, "2019-12-01T05:00:00+00:00")
 		endTime := time.Now()
