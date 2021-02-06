@@ -6,14 +6,15 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/gorilla/websocket"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 type WSClient struct {
-	isConnected	bool
-	terminal	bool
-	connection	websocket.Dialer
+	isConnected bool
+	terminal    bool
+	connection  websocket.Dialer
 }
 
 func (c *WSClient) subscribeBooks() {
@@ -22,9 +23,9 @@ func (c *WSClient) subscribeBooks() {
 
 func New() *WSClient {
 	c := &WSClient{
-		isConnected:	false,
-		terminal:		false,
-		connection:		websocket.Dialer{},
+		isConnected: false,
+		terminal:    false,
+		connection:  websocket.Dialer{},
 	}
 	return c
 }
