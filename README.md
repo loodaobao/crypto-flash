@@ -22,10 +22,11 @@ Steps:
 $ zsh < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer)
 ```
 
-2. Install Go
+2. Install Go on Mac
 
 ```sh
-$ gvm install go1.4
+# Install Go using binary
+$ gvm install go1.14 -B
 $ gvm use go1.14
 ```
 
