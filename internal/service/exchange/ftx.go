@@ -11,6 +11,7 @@
 package exchange
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -328,7 +329,7 @@ type futureResult struct {
 	Index float64
 }
 
-func (ftx *FTX) GetFuture(future string) futureResult {
+func (ftx *FTX) GetFuture(future string) (futureResult, error) {
 	type res struct {
 		Success bool
 		Result  futureResult
@@ -338,9 +339,11 @@ func (ftx *FTX) GetFuture(future string) futureResult {
 	ftx.restClient.Get(url, nil, nil, &resObj)
 	if !resObj.Success {
 		fmt.Println(resObj)
-		util.Error(ftx.tag, "Get future error")
+		errorMsg := fmt.Sprintf("Get future %s error", future)
+		util.Error(ftx.tag, errorMsg)
+		return resObj.Result, errors.New(errorMsg)
 	}
-	return resObj.Result
+	return resObj.Result, nil
 }
 
 type futureStatsResult struct {
