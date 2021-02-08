@@ -25,8 +25,8 @@ type Notifier struct {
 
 func NewNotifier(lineSecret, lineAccessToken, tgToken string) *Notifier {
 	n := &Notifier{
-		tag:        "Notifier",
-		users:      make(map[string]int64),
+		tag:   "Notifier",
+		users: make(map[string]int64),
 	}
 	if lineSecret != "" && lineAccessToken != "" {
 		lc, err := linebot.New(lineSecret, lineAccessToken)

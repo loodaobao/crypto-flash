@@ -68,22 +68,25 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier) *FRArb {
 		reportPeriod: 6,
 		futureNames: []string{
 			"BTC", "ETH", "LTC", "LINK", "DOGE", "ADA", "AAVE", "XRP", "DOT", "SUSHI",
-			"DEFI", "BCH", "1INCH", "BNB", "SNX", "ALPHA", "EOS", "UNI", "ATOM", "YFI",
-			"GRT", "ALGO", "THETA", "SXP", "XLM", "COMP", "TRX", "SOL",
-			"BSV", "KNC", "MKR", "CRV", "XTZ", "FTT", "BRZ", "RUNE", "FIL", "BAND",
-			"MATIC", "BAL", "OMG", "RSR", "WAVES", "REN", "VET", "AVAX", "ZEC", "TOMO",
-			"ETC", "SHIT", "FLM", "ALT", "CREAM", "KSM", "YFII", "EXCH", "MID", "USDT",
-			"DMG", "EGLD", "NEO", "MTA", "DRGN", "XMR", "HT", "HNT", "OKB",
-			"PRIV", "BAT", "ONT", "TRU", "UNISWAP", "AMPL", "BTMX",
-			"CHZ", "BTT", "HOLY", "SECO", "XAUT", "LEO", "TRYB", "PAXG", "CUSDT",
+			"DEFI", "BCH", "1INCH", "BNB", "EOS", "UNI", "ATOM", "YFI",
+			"GRT", "ALGO", "THETA", "SXP", "COMP", "TRX", "SOL",
+			"BSV", "XTZ", "BRZ", "FIL",
+			"BAL", "OMG", "WAVES", "AVAX",
+			"SHIT", "ALT", "CREAM", "EXCH", "MID", "USDT",
+			"DRGN", "OKB",
+			"PRIV", "ONT", "TRU", "UNISWAP", "AMPL", "BTMX",
+			"CHZ", "XAUT", "LEO", "TRYB", "PAXG", "CUSDT",
 			// new "BADGER", "PERP", "LINA", "BAO"
+			// pair without quarter: "FTT", "ALPHA", "YFII", "ZEC", "REN", "HOLY", "BAT", "MKR", "MATIC", "VET"
+			// "XMR", "HT", "CRV", "RUNE", "TOMO", "KNC", "MTA", "ETC", "NEO", "EGLD", "BTT", "SECO", "FLM"
+			// "SNX", "DMG", "RSR", "HNT", "KSM", "XLM", "BAND"
 		},
 		// perp and quarter have 1/2 pairPortion and leverage
 		leverage: 5,
 		// consecutive hours of positive/negative funding rate
 		longTime: 1 * 24,
 		// start arbitrage if estApr is more then this threshold
-		aprThreshold: 1,
+		aprThreshold: 2,
 		// previous data we used to calculate estApr
 		prevRateDays: 7,
 		// minimum USD amount to start a pair (perp + quarter)
@@ -142,6 +145,12 @@ func (fra *FRArb) genSignal(future *future) {
 				fra.notifier.Broadcast(fra.tag,
 					"profitable: "+future.name+"\n"+fmt.Sprintf("estApr: %.2f%%", future.estApr*100))
 			}
+			// check future has quarterContract
+			// TODO: use spot
+			_, err := fra.ftx.GetFuture(fra.getFutureName(future.name, false))
+			if err != nil {
+				return
+			}
 			fra.startFutures = append(fra.startFutures, future)
 		}
 	} else {
@@ -186,6 +195,9 @@ func (fra *FRArb) sendReport() {
 	totalProfit := 0.0
 	for _, name := range names {
 		future := fra.futures[name]
+		if future.totalProfit == 0 {
+			continue
+		}
 		msg += "future: " + future.name + "\n"
 		msg += fmt.Sprintf("estApr: %.2f%%\n", future.estApr*100)
 		msg += fmt.Sprintf("consCount: %d\n", future.consCount)
@@ -324,7 +336,11 @@ func (fra *FRArb) Start() {
 		// one hour just passed, get funding rate of the previous hour
 		if now%(60*60) == fra.updatePeriod {
 			for name, future := range fra.futures {
-				rates := fra.ftx.GetFundingRates(now-60, now, fra.getFutureName(name, true))
+				rates := fra.ftx.GetFundingRates(now-60*5, now, fra.getFutureName(name, true))
+				if len(rates) < 1 {
+					util.Error(fra.tag, fmt.Sprintf("error getting latest rate of %s", name))
+					continue
+				}
 				future.fundingRates = append([]float64{rates[0]}, future.fundingRates[:24*fra.prevRateDays-1]...)
 				// calculate profit if future has position
 				future.totalProfit += future.size * future.fundingRates[0] * -1
