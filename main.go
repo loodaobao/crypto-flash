@@ -53,8 +53,8 @@ func main() {
 	rs := character.NewResTrend(ftx, n)
 	fra := character.NewFRArb(ftx, n)
 	startSignalProvider := func() {
-		go rs.Start()
-		wg.Add(1)
+		//go rs.Start()
+		//wg.Add(1)
 		go fra.Start()
 		wg.Add(1)
 	}
