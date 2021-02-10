@@ -29,7 +29,9 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.REMOTE_PORT }}
         script: |
-          pwd
+          cd crypto-flash/
+          git pull origin master
+
 
 #     - name: Test
 #       run: go test -v ./...
