@@ -30,7 +30,9 @@ jobs:
         port: ${{ secrets.REMOTE_PORT }}
         script: |
           cd /home/easelife4u/crypto-flash/
-          git pull origin master
+          git fetch
+          git checkout feature-deployment
+          git pull origin feature-deployment
           export PATH=$PATH:/usr/local/go/bin
           go build -o main .
 
