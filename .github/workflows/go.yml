@@ -29,8 +29,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.REMOTE_PORT }}
         script: |
-          whoami
-          ls -al
+          pwd
 
 #     - name: Test
 #       run: go test -v ./...
