@@ -9,8 +9,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -34,11 +32,7 @@ func main() {
 	var wg sync.WaitGroup
 	fmt.Printf("Crypto Flash v%s initialized. Update: \n%s\n", version, update)
 
-	base, _ := os.Getwd()
-	config := config.Load(
-		filepath.Join(base, "config.json"),
-		tag,
-	)
+	config := config.Load("config.json", tag)
 
 	var n *character.Notifier
 	if config.Notify && config.Mode != "backtest" {
