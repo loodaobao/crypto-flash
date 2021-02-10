@@ -31,7 +31,8 @@ jobs:
         script: |
           cd /home/easelife4u/crypto-flash/
           git pull origin master
-          go build -o main .
+          whoami
+          ls -al
 
 #     - name: Test
 #       run: go test -v ./...
