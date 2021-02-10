@@ -29,7 +29,8 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.REMOTE_PORT }}
         script: |
-          cd crypto-flash/
+          cd /home/easelife4u/crypto-flash/
+          pwd
           git pull origin master
 
 
