@@ -21,5 +21,21 @@ jobs:
     - name: Build
       run: go build -v ./...
 
+    - name: Deploy to linode server
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.REMOTE_HOST }}
+        username: ${{ secrets.REMOTE_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: ${{ secrets.REMOTE_PORT }}
+        script: |
+          cd crypto-flash/
+          git fetch
+          git checkout feature-deployment
+          git pull origin feature-deployment
+          export PATH=$PATH:/usr/local/go/bin
+          go build -o main .
+          sudo systemctl reload-or-restart crypto-flash
+
 #     - name: Test
 #       run: go test -v ./...
