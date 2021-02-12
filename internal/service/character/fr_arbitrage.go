@@ -123,7 +123,7 @@ func (fra *FRArb) Backtest(startTime, endTime int64) float64 {
 func (fra *FRArb) genSignal(future *future) {
 	fundingRates := future.fundingRates
 	util.Info(fra.tag, future.name, fmt.Sprintf("latestFundingRate: %f", fundingRates[0]))
-	util.Info(fra.tag, future.name, fmt.Sprintf("equivalent apr: %.2f%%", fundingRates[0]*365*24*100))
+	util.Info(fra.tag, future.name, fmt.Sprintf("equivalent apr: %.2f%%", math.Abs(fundingRates[0])*365*24*100))
 	future.consCount = 1
 	for i := 1; i < len(future.fundingRates); i++ {
 		if fundingRates[i]*fundingRates[0] <= 0 {
@@ -352,20 +352,15 @@ func (fra *FRArb) Start() {
 	for {
 		now = time.Now().Unix()
 		// TODO: check existing position every updatePeriod
-		// one hour and 30 second just passed, get funding rate of the previous hour
-		getFundingRateSecond := fra.updatePeriod * 2
-		if now%(60*60) == getFundingRateSecond {
-			// start time = 5 mins before one hour
-			fundingRateStartTime := now - now%(60*60) - 60 * 5
+		// one hour and 15 second just passed, get next funding rate
+		getFundingRateOffset := fra.updatePeriod
+		if now%(60*60) == getFundingRateOffset {
 			for name, future := range fra.futures {
-				rates := fra.ftx.GetFundingRates(fundingRateStartTime, now, fra.getFutureName(name, true))
-				if len(rates) < 1 {
-					util.Error(fra.tag, fmt.Sprintf("error getting latest rate of %s", name))
-					continue
-				}
-				future.fundingRates = append([]float64{rates[0]}, future.fundingRates[:24*fra.prevRateDays-1]...)
+				resp := fra.ftx.GetFutureStats(fra.getFutureName(name, true))
+				nextFundingRate := resp.NextFundingRate	
+				future.fundingRates = append([]float64{nextFundingRate}, future.fundingRates[:24*fra.prevRateDays-1]...)
 				// calculate profit if future has position
-				future.totalProfit += future.size * future.fundingRates[0] * -1
+				future.totalProfit += future.size * future.fundingRates[1] * -1
 				fra.genSignal(future)
 			}
 			for _, future := range fra.stopFutures {
@@ -397,7 +392,7 @@ func (fra *FRArb) Start() {
 			fra.sendHedgeProfitReport()
 		}
 		// generate roi report
-		if now%(fra.reportPeriod*60*60) == getFundingRateSecond {
+		if now%(fra.reportPeriod*60*60) == getFundingRateOffset {
 			fra.sendROIReport()
 		}
 		timeToNextCycle := fra.updatePeriod - time.Now().Unix()%fra.updatePeriod
