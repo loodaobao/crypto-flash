@@ -17,6 +17,11 @@ jobs:
     - name: Build
       run: go build -v ./...
 
+    - name: Extract branch name
+      shell: bash
+      run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+      id: extract_branch
+
     - name: Deploy
       uses: appleboy/ssh-action@master
       with:
@@ -25,12 +30,14 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.REMOTE_PORT }}
         script: |
+          echo 'Current branch name is' ${{ steps.extract_branch.outputs.branch }}
           cd crypto-flash/
           export TG_CONFIG='${{ secrets.TG_CONFIG }}'
           echo $TG_CONFIG > config.json
+          git checkout .
           git fetch
-          git checkout master
-          git pull origin master
+          git checkout ${{ steps.extract_branch.outputs.branch }}
+          git pull origin ${{ steps.extract_branch.outputs.branch }}
           export PATH=$PATH:/usr/local/go/bin
           go build -o main .
           sudo systemctl reload-or-restart crypto-flash
