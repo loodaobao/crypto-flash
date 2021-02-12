@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - feature-auto-deploy-config
   # pull_request:
   #   branches: [ master ]
 
@@ -33,7 +32,7 @@ jobs:
         script: |
           cd crypto-flash/
           export TG_CONFIG='${{ secrets.TG_CONFIG }}'
-          echo $TG_CONFIG >> config.json.test
+          echo $TG_CONFIG > config.json
           git fetch
           git checkout master
           git pull origin master
