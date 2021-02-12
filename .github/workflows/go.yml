@@ -1,11 +1,16 @@
-name: Go
+name: Manually triggered workflow
 
 on:
-  push:
-    branches:
-      - master
-  # pull_request:
-  #   branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      name:
+        description: 'Person to greet'
+        required: true
+        default: 'Mona the Octocat'
+      home:
+        description: 'location'
+        required: false
+        default: 'The Octoverse'
 
 jobs:
 
