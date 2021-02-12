@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
 
 jobs:
-
   build:
     runs-on: ubuntu-20.04
     steps:
@@ -35,6 +34,3 @@ jobs:
           export PATH=$PATH:/usr/local/go/bin
           go build -o main .
           sudo systemctl reload-or-restart crypto-flash
-
-#     - name: Test
-#       run: go test -v ./...
