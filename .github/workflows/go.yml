@@ -30,15 +30,13 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.REMOTE_PORT }}
         script: |
-          echo 'The branch name is' ${{ steps.extract_branch.outputs.branch }}
-        # script: |
-        #   echo 'The branch name is' $BRANCH_NAME
-        #   cd crypto-flash/
-        #   export TG_CONFIG='${{ secrets.TG_CONFIG }}'
-        #   echo $TG_CONFIG > config.json
-        #   git fetch
-        #   git checkout master
-        #   git pull origin master
-        #   export PATH=$PATH:/usr/local/go/bin
-        #   go build -o main .
-        #   sudo systemctl reload-or-restart crypto-flash
+          echo 'Current branch name is' {{ steps.extract_branch.outputs.branch }}
+          cd crypto-flash/
+          export TG_CONFIG='${{ secrets.TG_CONFIG }}'
+          echo $TG_CONFIG > config.json
+          git fetch
+          git checkout ${{ steps.extract_branch.outputs.branch }}
+          git pull origin ${{ steps.extract_branch.outputs.branch }}
+          export PATH=$PATH:/usr/local/go/bin
+          go build -o main .
+          sudo systemctl reload-or-restart crypto-flash
