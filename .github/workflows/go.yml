@@ -30,7 +30,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.REMOTE_PORT }}
         script: |
-          echo 'Current branch name is' {{ steps.extract_branch.outputs.branch }}
+          echo 'Current branch name is' ${{ steps.extract_branch.outputs.branch }}
           cd crypto-flash/
           export TG_CONFIG='${{ secrets.TG_CONFIG }}'
           echo $TG_CONFIG > config.json
