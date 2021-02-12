@@ -32,7 +32,7 @@ jobs:
         port: ${{ secrets.REMOTE_PORT }}
         script: |
           cd crypto-flash/
-          echo ${{ secrets.TG_CONFIG }}
+          echo ${{ secrets.TG_CONFIG }} >> 'config.json.test'
           git fetch
           git checkout master
           git pull origin master
