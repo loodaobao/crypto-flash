@@ -1,4 +1,4 @@
-name: Manually triggered workflow
+name: Manually deploy
 
 on:
   workflow_dispatch:
@@ -18,7 +18,7 @@ jobs:
     - name: Build
       run: go build -v ./...
 
-    - name: Deploy to linode server
+    - name: Deploy
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.REMOTE_HOST }}
