@@ -2,9 +2,11 @@ name: Go
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    branches:
+      - master
+      - feature-auto-deploy-config
+  # pull_request:
+  #   branches: [ master ]
 
 jobs:
 
