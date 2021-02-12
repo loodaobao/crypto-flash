@@ -2,9 +2,10 @@ name: Go
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    branches:
+      - master
+  # pull_request:
+  #   branches: [ master ]
 
 jobs:
 
@@ -30,6 +31,8 @@ jobs:
         port: ${{ secrets.REMOTE_PORT }}
         script: |
           cd crypto-flash/
+          export TG_CONFIG='${{ secrets.TG_CONFIG }}'
+          echo $TG_CONFIG > config.json
           git fetch
           git checkout master
           git pull origin master
