@@ -34,6 +34,7 @@ jobs:
           cd crypto-flash/
           export TG_CONFIG='${{ secrets.TG_CONFIG }}'
           echo $TG_CONFIG > config.json
+          git checkout .
           git fetch
           git checkout ${{ steps.extract_branch.outputs.branch }}
           git pull origin ${{ steps.extract_branch.outputs.branch }}
