@@ -15,5 +15,6 @@
         "channelSecret": "",
         "channelAccessToken": ""
     },
-    "telegram": ""
+    "telegram": "",
+    "sentry": ""
 }

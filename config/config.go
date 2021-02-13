@@ -26,6 +26,7 @@ type config struct {
 	Bots     []bot
 	Line     lineConfig
 	Telegram string
+	Sentry   string
 }
 
 func Load(fileName, tag string) config {
