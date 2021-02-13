@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"crypto-flash/internal/apm"
 	character "crypto-flash/internal/service/character"
 	exchange "crypto-flash/internal/service/exchange"
 
@@ -33,6 +34,9 @@ func main() {
 	fmt.Printf("Crypto Flash v%s initialized. Update: \n%s\n", version, update)
 
 	config := config.Load("config.json", tag)
+
+	// Init sentry service
+	apm.InitSentryService(config.Sentry)
 
 	var n *character.Notifier
 	if config.Notify && config.Mode != "backtest" {
