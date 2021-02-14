@@ -337,7 +337,7 @@ func (fra *FRArb) Start() {
 		now = time.Now().Unix()
 		// TODO: check existing position every updatePeriod
 		// one hour and 15 second just passed, get next funding rate
-		getFundingRateOffset := fra.updatePeriod
+		getFundingRateOffset := 60*60 - fra.updatePeriod*2
 		if now%(60*60) == getFundingRateOffset || isTestEnv {
 			for name, future := range fra.futures {
 				resp := fra.ftx.GetFutureStats(fra.getFutureName(name, true))
@@ -347,7 +347,7 @@ func (fra *FRArb) Start() {
 				if future.size != 0 {
 					profit := future.size * future.fundingRates[1] * -1
 					future.totalProfit += profit
-					msg := fmt.Sprintf("earning %.2f USD on %s", profit, name)
+					msg := fmt.Sprintf("earned %.2f USD on %s", profit, name)
 					util.Info(fra.tag, msg)
 					fra.broadcast(msg)
 				}
