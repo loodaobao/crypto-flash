@@ -322,7 +322,7 @@ func (fra *FRArb) sendHedgeProfitReport() {
 }
 func (fra *FRArb) Start() {
 	value, exist := os.LookupEnv("ENV")
-	isTestMode := exist && value == "test"
+	isTestENV := exist && value == "test"
 	// get previous funding rate
 	now := time.Now().Unix()
 	end := now - now%(60*60)
@@ -338,7 +338,7 @@ func (fra *FRArb) Start() {
 		// TODO: check existing position every updatePeriod
 		// one hour and 15 second just passed, get next funding rate
 		getFundingRateOffset := fra.updatePeriod
-		if now%(60*60) == getFundingRateOffset || isTestMode {
+		if now%(60*60) == getFundingRateOffset || isTestENV {
 			for name, future := range fra.futures {
 				resp := fra.ftx.GetFutureStats(fra.getFutureName(name, true))
 				nextFundingRate := resp.NextFundingRate
