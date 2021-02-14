@@ -19,6 +19,8 @@ import (
 	util "crypto-flash/internal/service/util"
 
 	config "crypto-flash/config"
+
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -28,6 +30,14 @@ const (
 		"3. Funding rate arbitrage profit calculation includes trading fee and hedge profit (or cost)."
 	tag = "Crypto Flash"
 )
+
+func init() {
+	_ = godotenv.Load()
+
+	// if value, exist := os.LookupEnv("ENV"); exist && value != "test" {
+	// }
+
+}
 
 func main() {
 	var wg sync.WaitGroup
