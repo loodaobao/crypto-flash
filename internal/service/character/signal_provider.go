@@ -31,7 +31,11 @@ type SignalProvider struct {
 	takeProfitCount int
 	profits         []float64
 }
-
+func (sp *SignalProvider) broadcast(msg string) {
+	if sp.notifier != nil {
+		sp.notifier.Broadcast(sp.tag, msg)
+	}
+}
 func (sp *SignalProvider) showChart() {
 	var ticks []float64
 	var zeroes []float64
