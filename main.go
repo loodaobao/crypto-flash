@@ -50,20 +50,20 @@ func main() {
 	apm.InitSentryService(config.Sentry)
 
 	var n *character.Notifier
-	// if config.Notify && config.Mode != "backtest" {
-	// 	n = character.NewNotifier(config.Line.ChannelSecret,
-	// 		config.Line.ChannelSecret, config.Telegram)
-	// 	for _, bot := range config.Bots {
-	// 		n.AddUser(bot.Owner, bot.TelegramID)
-	// 	}
-	// 	wg.Add(1)
-	// 	go n.Listen()
-	// 	n.Broadcast(tag,
-	// 		fmt.Sprintf("Crypto Flash v%s initialized. Update: \n%s",
-	// 			version, update))
-	// } else {
-	// 	n = nil
-	// }
+	if config.Notify && config.Mode != "backtest" {
+		n = character.NewNotifier(config.Line.ChannelSecret,
+			config.Line.ChannelSecret, config.Telegram)
+		for _, bot := range config.Bots {
+			n.AddUser(bot.Owner, bot.TelegramID)
+		}
+		wg.Add(1)
+		go n.Listen()
+		n.Broadcast(tag,
+			fmt.Sprintf("Crypto Flash v%s initialized. Update: \n%s",
+				version, update))
+	} else {
+		n = nil
+	}
 	ftx := exchange.NewFTX("", "", "")
 	rs := character.NewResTrend(ftx, n)
 	fra := character.NewFRArb(ftx, n)
