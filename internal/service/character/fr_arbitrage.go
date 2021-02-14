@@ -338,7 +338,7 @@ func (fra *FRArb) Start() {
 		// TODO: check existing position every updatePeriod
 		// one hour and 15 second just passed, get next funding rate
 		getFundingRateOffset := fra.updatePeriod
-		if isTestMode || now%(60*60) == getFundingRateOffset {
+		if now%(60*60) == getFundingRateOffset || isTestMode {
 			for name, future := range fra.futures {
 				resp := fra.ftx.GetFutureStats(fra.getFutureName(name, true))
 				nextFundingRate := resp.NextFundingRate
