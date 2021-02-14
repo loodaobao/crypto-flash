@@ -79,3 +79,4 @@ Rename `config.json.example` file to `config.json` and fill in the following con
 - `notify`: Control whether to send notification or not.
 - `line`: Line bot configuration.
 - `telegram`: Telegram bot configuration. Just put the bot API token here.
+- `sentry`: Sentry DSN configuration. Just put the DSN URL here.
