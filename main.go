@@ -35,7 +35,6 @@ func init() {
 	_ = godotenv.Load()
 
 	// if value, exist := os.LookupEnv("ENV"); exist && value != "test" {
-	// 	gin.SetMode(gin.ReleaseMode)
 	// }
 
 }
