@@ -36,7 +36,7 @@ type FRArb struct {
 	futureNames         []string
 	leverage            float64
 	longTime            int
-	startROIThreshold   float64
+	startAprThreshold   float64
 	prevRateDays        int64
 	minAmount           float64
 	// data
@@ -74,19 +74,19 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier) *FRArb {
 			"BAL", "OMG", "WAVES", "AVAX",
 			"SHIT", "ALT", "CREAM", "EXCH", "MID", "USDT",
 			"DRGN", "OKB",
-			"PRIV", "ONT", "TRU", "UNISWAP", "AMPL", "BTMX",
+			"PRIV", "ONT", "TRU", "UNISWAP", "BTMX",
 			"CHZ", "XAUT", "LEO", "TRYB", "PAXG", "CUSDT",
 			// new "BADGER", "PERP", "LINA", "BAO"
 			// pair without quarter: "FTT", "ALPHA", "YFII", "ZEC", "REN", "HOLY", "BAT", "MKR", "MATIC", "VET"
 			// "XMR", "HT", "CRV", "RUNE", "TOMO", "KNC", "MTA", "ETC", "NEO", "EGLD", "BTT", "SECO", "FLM"
-			// "SNX", "DMG", "RSR", "HNT", "KSM", "XLM", "BAND"
+			// "SNX", "DMG", "RSR", "HNT", "KSM", "XLM", "BAND", "AMPL"
 		},
 		// perp and quarter have 1/2 pairPortion and leverage
 		leverage: 5,
 		// consecutive hours of positive/negative funding rate
 		longTime: 1 * 24,
 		// start arbitrage if ROI is more then this threshold
-		startROIThreshold: 5,
+		startAprThreshold: 5,
 		// previous data we used to calculate estApr
 		prevRateDays: 7,
 		// minimum USD amount to start a pair (perp + quarter)
@@ -145,7 +145,7 @@ func (fra *FRArb) genSignal(future *future) {
 		util.Info(fra.tag, "not profitable: "+future.name)
 		fra.broadcast("not profitable: " + future.name)
 		fra.stopFutures = append(fra.stopFutures, future)
-	} else if nextFundingROI >= fra.startROIThreshold && future.size == 0 {
+	} else if nextFundingROI >= fra.startAprThreshold && future.size == 0 {
 		util.Info(fra.tag, "profitable: "+future.name)
 		fra.broadcast("profitable: " + future.name + "\n" + fmt.Sprintf("estApr: %.2f%%", future.estApr*100))
 		// check future has quarterContract
@@ -335,7 +335,7 @@ func (fra *FRArb) Start() {
 		// TODO: check existing position every updatePeriod
 		// one hour and 15 second just passed, get next funding rate
 		getFundingRateOffset := fra.updatePeriod
-		if true || now%(60*60) == getFundingRateOffset {
+		if now%(60*60) == getFundingRateOffset {
 			for name, future := range fra.futures {
 				resp := fra.ftx.GetFutureStats(fra.getFutureName(name, true))
 				nextFundingRate := resp.NextFundingRate
