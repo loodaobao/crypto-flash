@@ -20,7 +20,7 @@ type future struct {
 	name              string
 	fundingRates      []float64
 	consCount         int
-	estApr            float64
+	estAPR            float64
 	size              float64
 	totalProfit       float64
 	perpEnterPrice    float64
@@ -36,7 +36,7 @@ type FRArb struct {
 	futureNames         []string
 	leverage            float64
 	longTime            int
-	startAprThreshold   float64
+	startAPRThreshold   float64
 	prevRateDays        int64
 	minAmount           float64
 	// data
@@ -85,9 +85,9 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier) *FRArb {
 		leverage: 5,
 		// consecutive hours of positive/negative funding rate
 		longTime: 1 * 24,
-		// start arbitrage if ROI is more then this threshold
-		startAprThreshold: 5,
-		// previous data we used to calculate estApr
+		// start arbitrage if APR is more then this threshold
+		startAPRThreshold: 5,
+		// previous data we used to calculate estAPR
 		prevRateDays: 7,
 		// minimum USD amount to start a pair (perp + quarter)
 		minAmount: 10,
@@ -123,9 +123,9 @@ func (fra *FRArb) Backtest(startTime, endTime int64) float64 {
 func (fra *FRArb) genSignal(future *future) {
 	fundingRates := future.fundingRates
 	nextFundingRate := fundingRates[0]
-	nextFundingROI := math.Abs(fundingRates[0]) * 365 * 24 * fra.leverage / 2
+	nextFundingAPR := math.Abs(fundingRates[0]) * 365 * 24 * fra.leverage / 2
 	util.Info(fra.tag, future.name, fmt.Sprintf("next funding rate: %f", fundingRates[0]))
-	util.Info(fra.tag, future.name, fmt.Sprintf("next equivalent Apr: %.2f%%", nextFundingROI*100))
+	util.Info(fra.tag, future.name, fmt.Sprintf("next equivalent APR: %.2f%%", nextFundingAPR*100))
 	future.consCount = 1
 	for i := 1; i < len(future.fundingRates); i++ {
 		if fundingRates[i]*fundingRates[0] <= 0 {
@@ -138,16 +138,16 @@ func (fra *FRArb) genSignal(future *future) {
 		totalRate += rate
 	}
 	toAnnual := float64(365*24) / float64(len(fundingRates))
-	future.estApr = totalRate * toAnnual * fra.leverage / 2
-	util.Info(fra.tag, future.name, fmt.Sprintf("estApr: %.2f%%", future.estApr*100))
+	future.estAPR = totalRate * toAnnual * fra.leverage / 2
+	util.Info(fra.tag, future.name, fmt.Sprintf("estAPR: %.2f%%", future.estAPR*100))
 	notProfitable := (future.size * nextFundingRate) > 0
 	if notProfitable {
 		util.Info(fra.tag, "not profitable: "+future.name)
 		fra.broadcast("not profitable: " + future.name)
 		fra.stopFutures = append(fra.stopFutures, future)
-	} else if nextFundingROI >= fra.startAprThreshold && future.size == 0 {
+	} else if nextFundingAPR >= fra.startAPRThreshold && future.size == 0 {
 		util.Info(fra.tag, "profitable: "+future.name)
-		fra.broadcast("profitable: " + future.name + "\n" + fmt.Sprintf("estApr: %.2f%%", future.estApr*100))
+		fra.broadcast("profitable: " + future.name + "\n" + fmt.Sprintf("estAPR: %.2f%%", future.estAPR*100))
 		// check future has quarterContract
 		// TODO: use spot
 		_, err := fra.ftx.GetFuture(fra.getFutureName(future.name, false))
@@ -158,14 +158,14 @@ func (fra *FRArb) genSignal(future *future) {
 	}
 }
 
-func (fra *FRArb) sortApr() []string {
+func (fra *FRArb) sortAPR() []string {
 	type kv struct {
 		k string
 		v float64
 	}
 	var kvs []kv
 	for name, future := range fra.futures {
-		kvs = append(kvs, kv{name, future.estApr})
+		kvs = append(kvs, kv{name, future.estAPR})
 	}
 	sort.Slice(kvs, func(i, j int) bool {
 		return kvs[i].v > kvs[j].v
@@ -185,7 +185,7 @@ func (fra *FRArb) sendROIReport() {
 	runTime := time.Now().Sub(fra.startTime)
 	d := util.FromTimeDuration(runTime)
 	msg += "Runtime: " + d.String() + "\n\n"
-	names := fra.sortApr()
+	names := fra.sortAPR()
 	totalProfit := 0.0
 	for _, name := range names {
 		future := fra.futures[name]
@@ -193,7 +193,7 @@ func (fra *FRArb) sendROIReport() {
 			continue
 		}
 		msg += "future: " + future.name + "\n"
-		msg += fmt.Sprintf("estApr: %.2f%%\n", future.estApr*100)
+		msg += fmt.Sprintf("estAPR: %.2f%%\n", future.estAPR*100)
 		msg += fmt.Sprintf("consCount: %d\n", future.consCount)
 		msg += fmt.Sprintf("next funding rate: %f\n", future.fundingRates[0])
 		msg += fmt.Sprintf("size: %f\n", future.size)
@@ -335,7 +335,7 @@ func (fra *FRArb) Start() {
 		// TODO: check existing position every updatePeriod
 		// one hour and 15 second just passed, get next funding rate
 		getFundingRateOffset := fra.updatePeriod
-		if now%(60*60) == getFundingRateOffset {
+		if true || now%(60*60) == getFundingRateOffset {
 			for name, future := range fra.futures {
 				resp := fra.ftx.GetFutureStats(fra.getFutureName(name, true))
 				nextFundingRate := resp.NextFundingRate
@@ -371,13 +371,13 @@ func (fra *FRArb) Start() {
 			}
 			fra.startFutures = fra.startFutures[:0]
 			fra.stopFutures = fra.stopFutures[:0]
-			names := fra.sortApr()
-			util.Info(fra.tag, "estApr Rank:")
+			names := fra.sortAPR()
+			util.Info(fra.tag, "estAPR Rank:")
 			for _, name := range names {
 				future := fra.futures[name]
 				msg := fmt.Sprintf(
-					"future: %s, estApr: %.2f%%, nextROI: %.2f%%, consCount: %d",
-					name, future.estApr*100, math.Abs(future.fundingRates[0])*24*365*fra.leverage/2*100, future.consCount)
+					"future: %s, estAPR: %.2f%%, nextAPR: %.2f%%, consCount: %d",
+					name, future.estAPR*100, math.Abs(future.fundingRates[0])*24*365*fra.leverage/2*100, future.consCount)
 				util.Info(fra.tag, msg)
 			}
 			fra.sendHedgeProfitReport()
