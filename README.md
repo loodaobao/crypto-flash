@@ -10,7 +10,7 @@ Only support FTX exchange for now.
 
 ### Stable version
 
-* Golang versions: 1.14 up
+* Golang versions: 1.15 up
 
 ## Install
 
@@ -26,7 +26,8 @@ $ zsh < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/bin
 
 ```sh
 # Install Go using binary
-$ gvm install go1.15 -B
+# run gvm install go1.15 -B if binary is available for this version
+$ gvm install go1.15
 $ gvm use go1.15
 ```
 
