@@ -374,7 +374,7 @@ type MarketPairs struct {
 }
 
 // Get all markets
-func (ftx *FTX) GetMarkets() (*MarketPairs, error) {
+func (ftx *FTX) GetMarketPairs() (*MarketPairs, error) {
 	type markets struct {
 		Name string
 		Type string
@@ -396,26 +396,20 @@ func (ftx *FTX) GetMarkets() (*MarketPairs, error) {
 		return nil, errors.New(errorMsg)
 	}
 
-	var separatePairs MarketPairs
+	var marketPairs MarketPairs
 	for _, market := range resObj.Result {
 		switch marketType := market.Type; marketType {
 		case "future":
 			existIndex := strings.Index(market.Name, "-PERP")
 			if existIndex >= 0 {
-				separatePairs.Perps = append(
-					separatePairs.Perps, market.Name,
-				)
+				marketPairs.Perps = append(marketPairs.Perps, market.Name)
 			} else {
-				separatePairs.Quarters = append(
-					separatePairs.Quarters, market.Name,
-				)
+				marketPairs.Quarters = append(marketPairs.Quarters, market.Name)
 			}
 		case "spot":
-			separatePairs.Spots = append(
-				separatePairs.Spots, market.Name,
-			)
+			marketPairs.Spots = append(marketPairs.Spots, market.Name)
 		}
 	}
 
-	return &separatePairs, nil
+	return &marketPairs, nil
 }
