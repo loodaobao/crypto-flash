@@ -46,6 +46,8 @@ type FRArb struct {
 	leverage            float64
 	longTime            int
 	startAPRThreshold   float64
+	endAPRThreshold     float64
+	startSpreadRate     float64
 	prevRateDays        int64
 	minAmount           float64
 	// data
@@ -96,6 +98,10 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier) *FRArb {
 		longTime: 1 * 24,
 		// start arbitrage if APR is more then this threshold
 		startAPRThreshold: 5,
+		// end arbitrage if APR is smaller then this threshold
+		endAPRThreshold: -0.5,
+		// spread should be smaller than startSpreadRate
+		startSpreadRate: 0.02,
 		// previous data we used to calculate avgAPR
 		prevRateDays: 7,
 		// minimum USD amount to start a pair (perp + quarter)
@@ -130,7 +136,13 @@ func (fra *FRArb) Backtest(startTime, endTime int64) float64 {
 		return roi*/
 	return 0
 }
-
+func (fra *FRArb) calculateFutureSpreadRate(futureName string) (float64, error) {
+	prices, err := fra.ftx.GetFuture(futureName)
+	if err != nil {
+		return 0, err
+	}
+	return (prices.Ask - prices.Bid) / prices.Bid, nil
+}
 func (fra *FRArb) genSignal(future *future) {
 	fundingRates := future.fundingRates
 	nextFundingRate := fundingRates[0]
@@ -151,12 +163,24 @@ func (fra *FRArb) genSignal(future *future) {
 	toAnnual := float64(365*24) / float64(len(fundingRates))
 	future.avgAPR = math.Abs(totalRate) * toAnnual * fra.leverage / 2
 	util.Info(fra.tag, future.name, fmt.Sprintf("avgAPR: %.2f%%", future.avgAPR*100))
-	notProfitable := (future.size * nextFundingRate) > 0
-	if notProfitable {
+	shouldEnd := (future.size*nextFundingRate) > 0 && -nextFundingAPR <= fra.endAPRThreshold
+	if shouldEnd {
 		util.Info(fra.tag, "not profitable: "+future.name)
 		fra.broadcast("not profitable: " + future.name)
 		fra.stopFutures = append(fra.stopFutures, future)
-	} else if nextFundingAPR >= fra.startAPRThreshold && future.size == 0 {
+		return
+	}
+	perpSpreadRate, err := fra.calculateFutureSpreadRate(fra.getFutureName(future.name, true))
+	if err != nil {
+		return
+	}
+	quarterSpreadRate, err := fra.calculateFutureSpreadRate(fra.getFutureName(future.name, false))
+	if err != nil {
+		return
+	}
+	shouldStart := nextFundingAPR >= fra.startAPRThreshold &&
+		perpSpreadRate <= fra.startSpreadRate && quarterSpreadRate <= fra.startSpreadRate
+	if shouldStart && future.size == 0 {
 		util.Info(fra.tag, "profitable: "+future.name)
 		fra.broadcast("profitable: " + future.name + "\n" + fmt.Sprintf("avgAPR: %.2f%%", future.avgAPR*100))
 		// check future has quarterContract
