@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	util "crypto-flash/internal/service/util"
@@ -364,4 +365,51 @@ func (ftx *FTX) GetFutureStats(future string) futureStatsResult {
 		util.Error(ftx.tag, "Get future stats error")
 	}
 	return resObj.Result
+}
+
+type MarketPairs struct {
+	Perps    []string
+	Quarters []string
+	Spots    []string
+}
+
+// Get all markets
+func (ftx *FTX) GetMarketPairs() (*MarketPairs, error) {
+	type markets struct {
+		Name string
+		Type string
+	}
+
+	type res struct {
+		Success bool
+		Result  []markets
+	}
+
+	var resObj res
+	url := host + marketAPI
+	ftx.restClient.Get(url, nil, nil, &resObj)
+
+	if !resObj.Success {
+		fmt.Println(resObj)
+		errorMsg := fmt.Sprintf("Get all markets error")
+		util.Error(ftx.tag, errorMsg)
+		return nil, errors.New(errorMsg)
+	}
+
+	var marketPairs MarketPairs
+	for _, market := range resObj.Result {
+		switch marketType := market.Type; marketType {
+		case "future":
+			existIndex := strings.Index(market.Name, "-PERP")
+			if existIndex >= 0 {
+				marketPairs.Perps = append(marketPairs.Perps, market.Name)
+			} else {
+				marketPairs.Quarters = append(marketPairs.Quarters, market.Name)
+			}
+		case "spot":
+			marketPairs.Spots = append(marketPairs.Spots, market.Name)
+		}
+	}
+
+	return &marketPairs, nil
 }
