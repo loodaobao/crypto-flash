@@ -213,16 +213,16 @@ func (fra *FRArb) sendFutureStatusReport() {
 		future := fra.futures[name]
 		if future.totalProfit != 0 {
 			msg := fmt.Sprintf("%s\n", name)
-			msg += fmt.Sprintf("size: %f\n", future.size)
+			msg += fmt.Sprintf("size: %.2f\n", future.size)
 			msg += fmt.Sprintf("avgAPR: %.2f%%\n", future.avgAPR*100)
 			msg += fmt.Sprintf("consCount: %d\n", future.consCount)
 			msg += fmt.Sprintf("next funding rate: %f (APR %.2f%%)\n",
 				future.fundingRates[0], fra.fundingRateToAPR(future.fundingRates[0])*100)
 			currentHedgeProfitROI := future.currentHedgeProfit / math.Abs(future.size)
-			msg += fmt.Sprintf("current hedge profit: %f (%.2f%%)\n",
+			msg += fmt.Sprintf("current hedge profit: %.2f (%.2f%%)\n",
 				future.currentHedgeProfit, currentHedgeProfitROI*100)
-			msg += fmt.Sprintf("total profit: %f\n", future.totalProfit)
-			msg += fmt.Sprintf("total profit + current hedge profit: %f\n",
+			msg += fmt.Sprintf("total profit: %.2f\n", future.totalProfit)
+			msg += fmt.Sprintf("total profit + current hedge profit: %.2f\n",
 				future.totalProfit+future.currentHedgeProfit)
 			util.Info(fra.tag, msg)
 			fra.broadcast(msg)
@@ -386,7 +386,6 @@ func (fra *FRArb) Start() {
 			for name, future := range fra.futures {
 				// do not update profit if future just starts
 				if isInStartFutures(future) {
-					fmt.Println("just start")
 					continue
 				}
 				if future.size != 0 {
