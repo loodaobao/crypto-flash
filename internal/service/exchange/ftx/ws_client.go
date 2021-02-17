@@ -17,7 +17,7 @@ const (
 	wsPath   = "/ws"
 )
 
-type ws struct {
+type WS struct {
 	*websocket.Conn
 }
 
@@ -38,11 +38,22 @@ func Connect() *websocket.Conn {
 	return c
 }
 
-// func SubscribePairs(pairs []string) {
+func (c *WS) SubscribePairs(channel string, pairs []string) {
 
-// }
+	for _, pair := range pairs {
+		fmt.Println("pair: ", pair)
+		payload := &PayloadStruct{
+			Op:      "subscribe",
+			Channel: channel,
+			Market:  pair,
+		}
 
-func (c *ws) sendMessage(payload *PayloadStruct) {
+		c.sendMessage(payload)
+	}
+
+}
+
+func (c *WS) sendMessage(payload *PayloadStruct) {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	done := make(chan struct{})
@@ -69,12 +80,7 @@ func (c *ws) sendMessage(payload *PayloadStruct) {
 		case <-done:
 			return
 		case <-ticker.C:
-			// TODO: Use `WriteJSON`
 			// {"op": "ping"}. You will see an {"type": "pong"}
-			// err := c.WriteMessage(
-			// 	websocket.TextMessage,
-			// 	[]byte(`{"op": "subscribe", "channel": "orderbook", "market": "BTC-PERP"}`),
-			// )
 			err := c.WriteJSON(payload)
 			if err != nil {
 				log.Println("write:", err)
@@ -104,12 +110,7 @@ func main() {
 	c := Connect()
 	defer c.Close()
 
-	payload := &PayloadStruct{
-		Op:      "subscribe",
-		Channel: "orderbook",
-		Market:  "BTC-PERP",
-	}
-
-	ws := &ws{c}
-	ws.sendMessage(payload)
+	ws := &WS{c}
+	pairs := []string{"BTC-PERP", "ETH-PERP"}
+	ws.SubscribePairs("orderbook", pairs)
 }
