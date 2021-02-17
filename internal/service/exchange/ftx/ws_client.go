@@ -16,25 +16,30 @@ const (
 	wsPath   = "/ws"
 )
 
-func main() {
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
+type ws struct {
+	*websocket.Conn
+}
 
+func Connect() *websocket.Conn {
 	u := url.URL{Scheme: wsScheme, Host: wsHost, Path: wsPath}
 	log.Printf("connecting to %s", u.String())
 
-	wc, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
-	defer wc.Close()
+	return c
+}
 
+func (c *ws) sendMessage() {
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
 	done := make(chan struct{})
 
 	go func() {
 		defer close(done)
 		for {
-			_, message, err := wc.ReadMessage()
+			_, message, err := c.ReadMessage()
 			if err != nil {
 				log.Println("read:", err)
 				return
@@ -53,7 +58,7 @@ func main() {
 		case <-ticker.C:
 			// TODO: Use `WriteJSON`
 			// {"op": "ping"}. You will see an {"type": "pong"}
-			err := wc.WriteMessage(
+			err := c.WriteMessage(
 				websocket.TextMessage,
 				[]byte(`{"op": "subscribe", "channel": "orderbook", "market": "BTC-PERP"}`),
 			)
@@ -66,7 +71,7 @@ func main() {
 
 			// Cleanly close the connection by sending a close message and then
 			// waiting (with timeout) for the server to close the connection.
-			err := wc.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
 				log.Println("write close:", err)
 				return
@@ -79,4 +84,11 @@ func main() {
 		}
 	}
 
+}
+
+func main() {
+	c := Connect()
+	defer c.Close()
+	ws := &ws{c}
+	ws.sendMessage()
 }
