@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/url"
 	"os"
@@ -20,6 +21,12 @@ type ws struct {
 	*websocket.Conn
 }
 
+type PayloadStruct struct {
+	Op      string `json:"op"`
+	Channel string `json:"channel"`
+	Market  string `json:"market"`
+}
+
 func Connect() *websocket.Conn {
 	u := url.URL{Scheme: wsScheme, Host: wsHost, Path: wsPath}
 	log.Printf("connecting to %s", u.String())
@@ -31,10 +38,16 @@ func Connect() *websocket.Conn {
 	return c
 }
 
-func (c *ws) sendMessage() {
+// func SubscribePairs(pairs []string) {
+
+// }
+
+func (c *ws) sendMessage(payload *PayloadStruct) {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	done := make(chan struct{})
+
+	fmt.Println("payload: ", payload)
 
 	go func() {
 		defer close(done)
@@ -58,10 +71,11 @@ func (c *ws) sendMessage() {
 		case <-ticker.C:
 			// TODO: Use `WriteJSON`
 			// {"op": "ping"}. You will see an {"type": "pong"}
-			err := c.WriteMessage(
-				websocket.TextMessage,
-				[]byte(`{"op": "subscribe", "channel": "orderbook", "market": "BTC-PERP"}`),
-			)
+			// err := c.WriteMessage(
+			// 	websocket.TextMessage,
+			// 	[]byte(`{"op": "subscribe", "channel": "orderbook", "market": "BTC-PERP"}`),
+			// )
+			err := c.WriteJSON(payload)
 			if err != nil {
 				log.Println("write:", err)
 				return
@@ -89,6 +103,13 @@ func (c *ws) sendMessage() {
 func main() {
 	c := Connect()
 	defer c.Close()
+
+	payload := &PayloadStruct{
+		Op:      "subscribe",
+		Channel: "orderbook",
+		Market:  "BTC-PERP",
+	}
+
 	ws := &ws{c}
-	ws.sendMessage()
+	ws.sendMessage(payload)
 }
