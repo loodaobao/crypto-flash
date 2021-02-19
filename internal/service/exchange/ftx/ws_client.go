@@ -1,6 +1,6 @@
 package main
 
-// https://github.com/grishinsana/goftx/blob/master/websocket.go
+// Ref: https://github.com/go-numb/go-ftx/blob/3144aa68f5/realtime/websocket.go
 
 import (
 	"context"
