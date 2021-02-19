@@ -89,8 +89,8 @@ type Orderbook struct {
 	Bids   [][]float64 `json:"bids"`
 	Asks   [][]float64 `json:"asks"`
 	Action string      `json:"action"`
-	// Time     time.Time   `json:"time"`
-	Checksum int `json:"checksum"`
+	// Time     decimal.Decimal `json:"time"`
+	// Checksum int             `json:"checksum"`
 }
 
 func subscribe(conn *websocket.Conn, channels, symbols []string) error {
@@ -253,9 +253,10 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	channels := []string{"orderbook"}
 	pairs := []string{"BTC-PERP", "ETH-PERP"}
 	ch := make(chan Response)
-	go Connect(ctx, ch, []string{"orderbook"}, pairs, nil)
+	go Connect(ctx, ch, channels, pairs, nil)
 
 	for {
 		select {
