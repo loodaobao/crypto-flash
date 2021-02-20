@@ -240,16 +240,16 @@ func (t *Trader) Start(signalChan <-chan *util.Signal) {
 				continue
 			}
 			if t.position.Side == "short" {
-				curMP = orderbook.Ask[0].Price
+				curMP = orderbook.Asks[0].Price
 			} else if t.position.Side == "long" {
-				curMP = orderbook.Bid[0].Price
+				curMP = orderbook.Bids[0].Price
 			}
 			go t.closePosition(signal.Market, curMP, signal.Reason)
 		} else if signal.Side == "long" || signal.Side == "short" {
 			if signal.Side == "long" {
-				curMP = orderbook.Ask[0].Price
+				curMP = orderbook.Asks[0].Price
 			} else if signal.Side == "short" {
-				curMP = orderbook.Bid[0].Price
+				curMP = orderbook.Bids[0].Price
 			}
 			usdBalance := t.wallet.GetBalance("USD")
 			util.Info(t.tag, fmt.Sprintf("current balance: %.2f", usdBalance))

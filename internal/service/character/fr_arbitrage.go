@@ -19,11 +19,12 @@ import (
 )
 
 type future struct {
-	name            string
-	spotPairName    string
-	perpPairName    string
-	quarterPairName string
-	fundingRates    []float64
+	name         string
+	spotPair     string
+	perpPair     string
+	quarterPair  string
+	hedgePair    string
+	fundingRates []float64
 	// consecutive count of same sign funding rate
 	consCount int
 	// average APR for a period of time
@@ -35,9 +36,9 @@ type future struct {
 	// profit this hour, set every hour
 	hourlyFundingRateProfit float64
 	// total profit of this pair from server start, accumulated
-	totalProfit       float64
-	perpEnterPrice    float64
-	quarterEnterPrice float64
+	totalProfit     float64
+	perpEnterPrice  float64
+	hedgeEnterPrice float64
 }
 type FRArb struct {
 	SignalProvider
@@ -87,11 +88,11 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier) *FRArb {
 		// consecutive hours of positive/negative funding rate
 		longTime: 1 * 24,
 		// start arbitrage if APR is more then this threshold
-		startAPRThreshold: 5,
+		startAPRThreshold: 8,
 		// end arbitrage if APR is smaller then this threshold
-		endAPRThreshold: -0.5,
+		endAPRThreshold: 0,
 		// spread should be smaller than startSpreadRate
-		startSpreadRate: 0.02,
+		startSpreadRate: 0.01,
 		// previous data we used to calculate avgAPR
 		prevRateDays: 7,
 		// minimum USD amount to start a pair (perp + quarter)
@@ -118,17 +119,13 @@ func (fra *FRArb) Backtest(startTime, endTime int64) float64 {
 		return roi*/
 	return 0
 }
-func (fra *FRArb) calculateFutureSpreadRate(futureName string) (float64, error) {
-	prices, err := fra.ftx.GetFuture(futureName)
-	if err != nil {
-		return 0, err
-	}
-	return (prices.Ask - prices.Bid) / prices.Bid, nil
+func (fra *FRArb) calculateSpreadRate(marketPair string) float64 {
+	ob := fra.ftx.GetOrderbook(marketPair, 1)
+	sellPrice, _ := ob.GetMarketSellPrice()
+	buyPrice, _ := ob.GetMarketBuyPrice()
+	return (sellPrice - buyPrice) / buyPrice
 }
 func (fra *FRArb) genSignal(future *future) {
-	if future.quarterPairName == "" {
-		return
-	}
 	fundingRates := future.fundingRates
 	nextFundingRate := fundingRates[0]
 	nextFundingAPR := fra.fundingRateToAPR(nextFundingRate)
@@ -155,16 +152,10 @@ func (fra *FRArb) genSignal(future *future) {
 		fra.stopFutures = append(fra.stopFutures, future)
 		return
 	}
-	perpSpreadRate, err := fra.calculateFutureSpreadRate(future.perpPairName)
-	if err != nil {
-		return
-	}
-	quarterSpreadRate, err := fra.calculateFutureSpreadRate(future.quarterPairName)
-	if err != nil {
-		return
-	}
+	perpSpreadRate := fra.calculateSpreadRate(future.perpPair)
+	hedgeSpreadRate := fra.calculateSpreadRate(future.hedgePair)
 	shouldStart := nextFundingAPR >= fra.startAPRThreshold &&
-		perpSpreadRate <= fra.startSpreadRate && quarterSpreadRate <= fra.startSpreadRate
+		perpSpreadRate <= fra.startSpreadRate && hedgeSpreadRate <= fra.startSpreadRate
 	if shouldStart && future.size == 0 {
 		util.Info(fra.tag, "profitable: "+future.name)
 		fra.broadcast("profitable: " + future.name + "\n" + fmt.Sprintf("avgAPR: %.2f%%", future.avgAPR*100))
@@ -222,6 +213,10 @@ func (fra *FRArb) sendFutureStatusReport() {
 			msg += fmt.Sprintf("next funding rate: %f (APR %.2f%%)\n",
 				future.fundingRates[0], fra.fundingRateToAPR(future.fundingRates[0])*100)
 			currentHedgeProfitROI := future.currentHedgeProfit / math.Abs(future.size)
+			msg += fmt.Sprintf("hedgePair: %s\n", future.hedgePair)
+			_, isCollaterable := fra.ftx.CollaterableSpots[future.name]
+			canPerfectLeverage := future.size >= 0 || isCollaterable
+			msg += fmt.Sprintf("isCollaterable: %t, canPerfectLeverage: %t\n", isCollaterable, canPerfectLeverage)
 			msg += fmt.Sprintf("current hedge profit: %.2f (%.2f%%)\n",
 				future.currentHedgeProfit, currentHedgeProfitROI*100)
 			msg += fmt.Sprintf("total profit: %.2f\n", future.totalProfit)
@@ -257,51 +252,39 @@ func (fra *FRArb) startPair(future *future, size float64) {
 			Ratio: ratio,
 		})
 	*/
-	perpPrices, err := fra.ftx.GetFuture(future.perpPairName)
-	if err != nil {
-		return
-	}
-	quarterPrices, err := fra.ftx.GetFuture(future.quarterPairName)
-	if err != nil {
-		return
-	}
+	perpOrderbook := fra.ftx.GetOrderbook(future.perpPair, 1)
+	hedgeOrderbook := fra.ftx.GetOrderbook(future.hedgePair, 1)
 	if perpSide == "long" {
-		future.perpEnterPrice = perpPrices.Ask
-		future.quarterEnterPrice = quarterPrices.Bid
+		future.perpEnterPrice, _ = perpOrderbook.GetMarketBuyPrice()
+		future.hedgeEnterPrice, _ = hedgeOrderbook.GetMarketSellPrice()
 	} else {
-		future.perpEnterPrice = perpPrices.Bid
-		future.quarterEnterPrice = quarterPrices.Ask
+		future.perpEnterPrice, _ = perpOrderbook.GetMarketSellPrice()
+		future.hedgeEnterPrice, _ = hedgeOrderbook.GetMarketBuyPrice()
 	}
 	future.totalProfit -= math.Abs(future.size) * fra.ftx.Fee * 2
 	util.Info(fra.tag, fmt.Sprintf("start earning on %s, size %f", future.name, future.size))
 	fra.broadcast(fmt.Sprintf("start earning on %s, size %f", future.name, future.size))
 }
 func (fra *FRArb) calculateHedgeProfit(future *future) (float64, error) {
-	perpPrices, err := fra.ftx.GetFuture(future.perpPairName)
-	if err != nil {
-		return 0, err
-	}
-	quarterPrices, err := fra.ftx.GetFuture(future.quarterPairName)
-	if err != nil {
-		return 0, err
-	}
-	var perpPrice, quarterPrice, perpProfit, quarterProfit float64
+	perpOrderbook := fra.ftx.GetOrderbook(future.perpPair, 1)
+	hedgeOrderbook := fra.ftx.GetOrderbook(future.hedgePair, 1)
+	var perpPrice, hedgePrice, perpProfit, hedgePairProfit float64
 	if future.size > 0 {
-		perpPrice = perpPrices.Bid
-		quarterPrice = quarterPrices.Ask
+		perpPrice, _ = perpOrderbook.GetMarketSellPrice()
+		hedgePrice, _ = hedgeOrderbook.GetMarketBuyPrice()
 	} else {
-		perpPrice = perpPrices.Ask
-		quarterPrice = quarterPrices.Bid
+		perpPrice, _ = perpOrderbook.GetMarketBuyPrice()
+		hedgePrice, _ = hedgeOrderbook.GetMarketSellPrice()
 	}
 	size := math.Abs(future.size)
 	perpProfit = size*(perpPrice/future.perpEnterPrice) - size
-	quarterProfit = size*(quarterPrice/future.quarterEnterPrice) - size
+	hedgePairProfit = size*(hedgePrice/future.hedgeEnterPrice) - size
 	if future.size > 0 {
-		quarterProfit *= -1
+		hedgePairProfit *= -1
 	} else {
 		perpProfit *= -1
 	}
-	return perpProfit + quarterProfit, nil
+	return perpProfit + hedgePairProfit, nil
 }
 func (fra *FRArb) updateFutureProfit(future *future) {
 	future.hourlyFundingRateProfit = future.size * future.fundingRates[1] * -1
@@ -361,20 +344,25 @@ func (fra *FRArb) createFutures() {
 	start := end - fra.prevRateDays*24*60*60
 	for _, perpPairName := range marketPairs.Perps {
 		spotName := strings.Split(perpPairName, "-")[0]
-		quarterPairName := spotName + "-" + fra.quarterContractName
-		spotPairName := spotName + "/USD"
-		_, isSpotPairExist := spotPairs[spotPairName]
-		_, isQuarterPairExist := quarterPairs[quarterPairName]
+		quarterPair := spotName + "-" + fra.quarterContractName
+		spotPair := spotName + "/USD"
+		_, isSpotPairExist := spotPairs[spotPair]
+		_, isQuarterPairExist := quarterPairs[quarterPair]
 		if isSpotPairExist || isQuarterPairExist {
 			f := &future{
-				name:         spotName,
-				perpPairName: perpPairName,
+				name:     spotName,
+				perpPair: perpPairName,
 			}
 			if isSpotPairExist {
-				f.spotPairName = spotPairName
+				f.spotPair = spotPair
 			}
 			if isQuarterPairExist {
-				f.quarterPairName = quarterPairName
+				f.quarterPair = quarterPair
+			}
+			if f.spotPair != "" {
+				f.hedgePair = spotPair
+			} else {
+				f.hedgePair = quarterPair
 			}
 			f.fundingRates = fra.ftx.GetFundingRates(start, end, perpPairName)
 			fra.futures[spotName] = f
@@ -394,7 +382,7 @@ func (fra *FRArb) Start() {
 		getFundingRateOffset := 60*60 - fra.updatePeriod*2
 		if now%(60*60) == getFundingRateOffset || isTestEnv {
 			for _, future := range fra.futures {
-				resp := fra.ftx.GetFutureStats(future.perpPairName)
+				resp := fra.ftx.GetFutureStats(future.perpPair)
 				nextFundingRate := resp.NextFundingRate
 				end := int(24*fra.prevRateDays - 1)
 				if end > len(future.fundingRates) {

@@ -98,7 +98,9 @@ func (sh *Shannon) genSignal(ask, bid float64) {
 func (sh *Shannon) Start() {
 	for {
 		orderbook := sh.ftx.GetOrderbook(sh.market, 1)
-		sh.genSignal(orderbook.Ask[0].Price, orderbook.Bid[0].Price)
+		bp, _ := orderbook.GetMarketBuyPrice()
+		sp, _ := orderbook.GetMarketSellPrice()
+		sh.genSignal(bp, sp)
 		time.Sleep(sh.updatePeriod)
 	}
 }
