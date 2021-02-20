@@ -61,10 +61,11 @@ type FRArb struct {
 	stopFutures  []*future
 }
 
-func NewFRArb(ftx *exchange.FTX, notifier *Notifier) *FRArb {
+func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
 	return &FRArb{
 		SignalProvider: SignalProvider{
-			tag:             "FRArbProvider",
+			tag:             "FRArbProvider-" + owner,
+			owner:           owner,
 			startTime:       time.Now(),
 			position:        nil,
 			initBalance:     1000000,
@@ -151,7 +152,7 @@ func (fra *FRArb) genSignal(future *future) {
 	shouldEnd := (future.size*nextFundingRate) > 0 && -nextFundingAPR <= fra.endAPRThreshold
 	if shouldEnd {
 		util.Info(fra.tag, "not profitable: "+future.name)
-		fra.broadcast("not profitable: " + future.name)
+		fra.send("not profitable: " + future.name)
 		fra.stopFutures = append(fra.stopFutures, future)
 		return
 	}
@@ -167,7 +168,7 @@ func (fra *FRArb) genSignal(future *future) {
 		perpSpreadRate <= fra.startSpreadRate && quarterSpreadRate <= fra.startSpreadRate
 	if shouldStart && future.size == 0 {
 		util.Info(fra.tag, "profitable: "+future.name)
-		fra.broadcast("profitable: " + future.name + "\n" + fmt.Sprintf("avgAPR: %.2f%%", future.avgAPR*100))
+		fra.send("profitable: " + future.name + "\n" + fmt.Sprintf("avgAPR: %.2f%%", future.avgAPR*100))
 		fra.startFutures = append(fra.startFutures, future)
 	}
 }
@@ -208,7 +209,7 @@ func (fra *FRArb) sendTotalROIReport() {
 	apr := util.CalcAnnualFromROI(roi, runTime.Seconds())
 	msg += fmt.Sprintf("apr: %.2f%%", apr*100)
 	util.Info(fra.tag, msg)
-	fra.broadcast(msg)
+	fra.send(msg)
 }
 func (fra *FRArb) sendFutureStatusReport() {
 	names := fra.sortAPR()
@@ -228,7 +229,7 @@ func (fra *FRArb) sendFutureStatusReport() {
 			msg += fmt.Sprintf("total profit + current hedge profit: %.2f\n",
 				future.totalProfit+future.currentHedgeProfit)
 			util.Info(fra.tag, msg)
-			fra.broadcast(msg)
+			fra.send(msg)
 		}
 	}
 }
@@ -274,7 +275,7 @@ func (fra *FRArb) startPair(future *future, size float64) {
 	}
 	future.totalProfit -= math.Abs(future.size) * fra.ftx.Fee * 2
 	util.Info(fra.tag, fmt.Sprintf("start earning on %s, size %f", future.name, future.size))
-	fra.broadcast(fmt.Sprintf("start earning on %s, size %f", future.name, future.size))
+	fra.send(fmt.Sprintf("start earning on %s, size %f", future.name, future.size))
 }
 func (fra *FRArb) calculateHedgeProfit(future *future) (float64, error) {
 	perpPrices, err := fra.ftx.GetFuture(future.perpPairName)
@@ -329,8 +330,8 @@ func (fra *FRArb) stopPair(future *future) {
 	fra.updateFutureProfit(future)
 	util.Info(fra.tag, fmt.Sprintf("stop earning on %s, size %f", future.name, future.size))
 	util.Info(fra.tag, fmt.Sprintf("final hedge profit: %f", future.currentHedgeProfit))
-	fra.broadcast(fmt.Sprintf("stop earning on %s, size %f", future.name, future.size))
-	fra.broadcast(fmt.Sprintf("final hedge profit: %f", future.currentHedgeProfit))
+	fra.send(fmt.Sprintf("stop earning on %s, size %f", future.name, future.size))
+	fra.send(fmt.Sprintf("final hedge profit: %f", future.currentHedgeProfit))
 	future.totalProfit += future.currentHedgeProfit
 	pairPortion := math.Abs(future.size) / fra.leverage * 2
 	fra.freeBalance += pairPortion
@@ -435,7 +436,7 @@ func (fra *FRArb) Start() {
 					fra.updateFutureProfit(future)
 					msg := fmt.Sprintf("earned %.2f USD on %s", future.hourlyFundingRateProfit, name)
 					util.Info(fra.tag, msg)
-					fra.broadcast(msg)
+					fra.send(msg)
 				}
 			}
 			fra.sendFutureStatusReport()

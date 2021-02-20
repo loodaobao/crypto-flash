@@ -20,6 +20,7 @@ import (
 
 type SignalProvider struct {
 	tag             string
+	owner           string
 	startTime       time.Time
 	position        *util.Position
 	initBalance     float64
@@ -31,9 +32,15 @@ type SignalProvider struct {
 	takeProfitCount int
 	profits         []float64
 }
+
 func (sp *SignalProvider) broadcast(msg string) {
 	if sp.notifier != nil {
 		sp.notifier.Broadcast(sp.tag, msg)
+	}
+}
+func (sp *SignalProvider) send(msg string) {
+	if sp.notifier != nil {
+		sp.notifier.Send(sp.tag, sp.owner, msg)
 	}
 }
 func (sp *SignalProvider) showChart() {

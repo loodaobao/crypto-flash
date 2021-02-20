@@ -13,6 +13,8 @@ type bot struct {
 	SubAccount string
 	TelegramID int64
 	Strategy   string
+	Mode       string
+	Verbose    bool
 }
 
 type lineConfig struct {
@@ -21,8 +23,6 @@ type lineConfig struct {
 }
 
 type config struct {
-	Mode     string
-	Notify   bool
 	Bots     []bot
 	Line     lineConfig
 	Telegram string
