@@ -68,16 +68,16 @@ $ air -d
 Rename `config.json.example` file to `config.json` and fill in the following configurations:
 - `bots`: An array of bot instance
     - `owner`: Name of the bot owner
+    - `mode`: mode for running the program. Available values are `"trade"`, `"simulate"` and `"backtest"`.
+        - Trade mode is for actual trading with the strategy, which means `key` and `secret` must be provided.
+        - Notify mode is for simulation and notification. No actual trade will happen.
+        - Backtest mode is for backtesting with historical price data.
+    - `verbose`: Whether to send notification or not.
     - `key`: API key generated from FTX exchange
     - `secret`: API secret generated from FTX exchange
     - `subAccount`: Sub-account in FTX exchange
     - `telegramId`: User's telegram room id of the bot chat room to provide personal trading information. If provided, `owner` should match the telegram user name.
     - `strategy`: Strategy of the bot. Currently the available values are `"fr_arbitrage"` and `"res_trend"`.
-- `mode`: mode for running the program. Available values are `"trade"`, `"notify"` and `"backtest"`.
-    - Trade mode is for actual trading with the strategy, which means `key` and `secret` must be provided for every bot.
-    - Notify mode is for simulation and notification. No actual trade will happen.
-    - Backtest mode is for backtesting with historical price data.
-- `notify`: Control whether to send notification or not.
 - `line`: Line bot configuration.
 - `telegram`: Telegram bot configuration. Just put the bot API token here.
 - `sentry`: Sentry DSN configuration. Just put the DSN URL here.

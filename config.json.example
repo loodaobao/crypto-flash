@@ -2,6 +2,8 @@
     "bots": [
         {
             "owner": "",
+            "mode": "",
+            "verbose": true,
             "key": "",
             "secret": "",
             "subAccount": "",
@@ -9,8 +11,6 @@
             "strategy": ""
         }
     ],
-    "mode": "backtest",
-    "notify": true,
     "line": {
         "channelSecret": "",
         "channelAccessToken": ""
