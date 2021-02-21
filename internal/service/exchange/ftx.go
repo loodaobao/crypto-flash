@@ -32,11 +32,12 @@ const (
 )
 
 type FTX struct {
-	tag        string
-	key        string
-	subAccount string
-	secret     string
-	Fee        float64
+	tag               string
+	key               string
+	subAccount        string
+	secret            string
+	Fee               float64
+	CollaterableSpots map[string]float64
 	// save all candles data from different resolutions and markets
 	candleData map[string][]*util.Candle
 	candleSubs map[string][]chan<- *util.Candle
@@ -49,6 +50,57 @@ func NewFTX(key, secret, subAccount string) *FTX {
 		secret:     secret,
 		subAccount: subAccount,
 		Fee:        0.0007,
+		// https://help.ftx.com/hc/en-us/articles/360031149632-Non-USD-Collateral
+		CollaterableSpots: map[string]float64{
+			"USD":             0.98,
+			"NonUSDFiat":      0.98,
+			"TokenizedStocks": 0.8,
+			"USDT":            0.95,
+			"BTC":             0.95,
+			"ETH":             0.9,
+			"BNB":             0.9,
+			"PAXG":            0.9,
+			"XAUT":            0.9,
+			"KNC":             0.9,
+			"BCH":             0.85,
+			"LTC":             0.85,
+			"TRYB":            0.85,
+			"LINK":            0.85,
+			"TRX":             0.85,
+			"CUSDT":           0.85,
+			"XRP":             0.85,
+			"SOL":             0.85,
+			"BVOL":            0.8,
+			"IBVOL":           0.8,
+			"MKR":             0.8,
+			"SUSHI":           0.8,
+			"SNX":             0.8,
+			"YFI":             0.8,
+			"SXP":             0.8,
+			"BTMX":            0.8,
+			"OMG":             0.8,
+			"TOMO":            0.8,
+			"AAVE":            0.8,
+			"OKB":             0.8,
+			"HT":              0.8,
+			"MATIC":           0.8,
+			"LEO":             0.8,
+			"SRM":             0.85,
+			"UNI":             0.8,
+			"MOB":             0.8,
+			"1INCH":           0.85,
+			"CEL":             0.8,
+			"GRT":             0.85,
+			"RUNE":            0.8,
+			"RSR":             0.8,
+			"FIDA":            0.8,
+			"HXRO":            0.75,
+			"HOLY":            0.85,
+			"SECO":            0.85,
+			"DAI":             0.85,
+			"DOGE":            0.8,
+			"FTT":             0.95,
+		},
 		tag:        "FTX",
 		candleData: make(map[string][]*util.Candle),
 		candleSubs: make(map[string][]chan<- *util.Candle),
@@ -56,7 +108,7 @@ func NewFTX(key, secret, subAccount string) *FTX {
 	}
 }
 
-// depth 20 ~ 100
+// depth 1 ~ 100
 func (ftx *FTX) GetOrderbook(market string, depth int) *util.Orderbook {
 	type orderbookRes struct {
 		Asks [][2]float64
