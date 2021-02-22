@@ -189,12 +189,15 @@ func (fra *FRArb) sendTotalROIReport() {
 	d := util.FromTimeDuration(runTime)
 	msg += "runtime: " + d.String() + "\n\n"
 	totalProfit := 0.0
+	totalHedgeProfit := 0.0
 	for _, future := range fra.futures {
 		totalProfit += future.totalProfit
+		totalHedgeProfit += future.currentHedgeProfit
 	}
 	msg += fmt.Sprintf("total profit: %.2f\n", totalProfit)
+	msg += fmt.Sprintf("total profit w/ hedge: %.2f\n", totalProfit+totalHedgeProfit)
 	msg += fmt.Sprintf("current free balance %.2f\n", fra.freeBalance)
-	currentBalance := fra.initBalance + totalProfit
+	currentBalance := fra.initBalance + totalProfit + totalHedgeProfit
 	roi := util.CalcROI(fra.initBalance, currentBalance)
 	msg += fmt.Sprintf("ROI: %.2f%%\n", roi*100)
 	apr := util.CalcAnnualFromROI(roi, runTime.Seconds())
