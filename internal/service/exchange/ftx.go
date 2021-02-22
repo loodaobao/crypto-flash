@@ -473,7 +473,6 @@ type SpotMarginBorrowRate struct {
 	Previous float64 `json:"previous"`
 }
 
-// TODO: Requires authentication.
 // Get spot margin borrow rates
 func (ftx *FTX) GetspotMarginBorrowRates() (*[]SpotMarginBorrowRate, error) {
 	type res struct {
@@ -483,7 +482,8 @@ func (ftx *FTX) GetspotMarginBorrowRates() (*[]SpotMarginBorrowRate, error) {
 
 	var resObj res
 	url := host + spotMarginBorrowRatesAPI
-	ftx.restClient.Get(url, nil, nil, &resObj)
+	header := ftx.genAuthHeader("GET", spotMarginBorrowRatesAPI, "")
+	ftx.restClient.Get(url, header, nil, &resObj)
 
 	if !resObj.Success {
 		fmt.Println(resObj)
