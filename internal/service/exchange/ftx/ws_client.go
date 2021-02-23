@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/buger/jsonparser"
@@ -85,6 +86,11 @@ type Response struct {
 	Results error
 }
 
+type RowList []Row
+type Row struct {
+	Price float64 `json:"price"`
+	Size  float64 `json:"size"`
+}
 type Orderbook struct {
 	Bids   [][]float64 `json:"bids"`
 	Asks   [][]float64 `json:"asks"`
@@ -249,6 +255,39 @@ func Connect(ctx context.Context, ch chan Response, channels, symbols []string, 
 	return nil
 }
 
+func (e RowList) Len() int {
+	return len(e)
+}
+
+func (e RowList) Less(i, j int) bool {
+	return e[i].Price > e[j].Price
+}
+
+func (e RowList) Swap(i, j int) {
+	e[i], e[j] = e[j], e[i]
+}
+
+func SortAsks(original []Row, new []Row) *[]Row {
+	original = append(original, new...)
+	sort.Sort(RowList(original))
+
+	var result []Row
+	result = append(result, original[0])
+	for i := 1; i < len(original); i++ {
+		if result[len(result)-1].Price == original[i].Price && result[len(result)-1].Size < original[i].Size {
+			result[len(result)-1].Size = original[i].Size
+		} else {
+			result = append(result, original[i])
+		}
+	}
+
+	if len(result) > 50 {
+		original = result[:50]
+	}
+
+	return &result
+}
+
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -257,6 +296,11 @@ func main() {
 	pairs := []string{"BTC-PERP", "ETH-PERP"}
 	ch := make(chan Response)
 	go Connect(ctx, ch, channels, pairs, nil)
+
+	type orderbookResult struct {
+		Symbol string
+		Result []Row
+	}
 
 	for {
 		select {
@@ -267,6 +311,11 @@ func main() {
 
 			case ORDERBOOK:
 				fmt.Printf("%s	%+v\n", v.Symbol, v.Orderbook)
+				fmt.Printf("Bids: %+v\n", v.Orderbook.Bids)
+				fmt.Printf("Asks: %+v\n", v.Orderbook.Asks)
+
+				// tt := Row{}
+				// orderbookResult[v.Symbol] = append(orderbookResult[v.Symbol], v.Orderbook.Bids)
 
 			case UNDEFINED:
 				fmt.Printf("%s	%s\n", v.Symbol, v.Results.Error())
