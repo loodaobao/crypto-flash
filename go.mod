@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	github.com/CheshireCatNick/crypto-flash v0.0.0-20200512172813-7735d3bbc1e7
+	github.com/buger/jsonparser v1.1.1
 	github.com/cosmtrek/air v1.21.2 // indirect
 	github.com/creack/pty v1.1.11 // indirect
 	github.com/fatih/color v1.10.0
@@ -16,6 +17,7 @@ require (
 	github.com/joho/godotenv v1.3.0
 	github.com/line/line-bot-sdk-go v7.7.0+incompatible
 	github.com/pelletier/go-toml v1.8.1 // indirect
+	github.com/shopspring/decimal v1.2.0
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
 	github.com/wcharczuk/go-chart v2.0.1+incompatible
 	golang.org/x/image v0.0.0-20201208152932-35266b937fa6 // indirect
