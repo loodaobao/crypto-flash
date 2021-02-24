@@ -267,8 +267,17 @@ func (e RowList) Swap(i, j int) {
 	e[i], e[j] = e[j], e[i]
 }
 
-func SortAsks(original []Row, new []Row) *[]Row {
-	original = append(original, new...)
+func SortAsks(original []Row, new [][]float64) *[]Row {
+	var convertNewObj []Row
+	for _, bids := range new {
+		test := Row{bids[0], bids[1]}
+		convertNewObj = append(convertNewObj, test)
+	}
+
+	// fmt.Println("original length --> ", len(original))
+	fmt.Println("convertNewObj length --> ", len(convertNewObj))
+
+	original = append(original, convertNewObj...)
 	sort.Sort(RowList(original))
 
 	var result []Row
@@ -282,7 +291,7 @@ func SortAsks(original []Row, new []Row) *[]Row {
 	}
 
 	if len(result) > 50 {
-		original = result[:50]
+		result = result[:50]
 	}
 
 	return &result
@@ -297,9 +306,9 @@ func main() {
 	ch := make(chan Response)
 	go Connect(ctx, ch, channels, pairs, nil)
 
-	type orderbookResult struct {
-		Symbol string
-		Result []Row
+	result := make(map[string]RowList)
+	for _, val := range pairs {
+		result[val] = RowList{}
 	}
 
 	for {
@@ -314,8 +323,11 @@ func main() {
 				fmt.Printf("Bids: %+v\n", v.Orderbook.Bids)
 				fmt.Printf("Asks: %+v\n", v.Orderbook.Asks)
 
-				// tt := Row{}
-				// orderbookResult[v.Symbol] = append(orderbookResult[v.Symbol], v.Orderbook.Bids)
+				fmt.Println("end result: ", v.Symbol)
+
+				result[v.Symbol] = *SortAsks(result[v.Symbol], v.Orderbook.Bids)
+
+				fmt.Println("result --> ", result)
 
 			case UNDEFINED:
 				fmt.Printf("%s	%s\n", v.Symbol, v.Results.Error())
