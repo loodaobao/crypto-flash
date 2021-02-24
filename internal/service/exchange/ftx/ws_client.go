@@ -75,15 +75,13 @@ type Order struct {
 }
 
 type Response struct {
-	Type   int
-	Symbol string
-
+	Type      int
+	Symbol    string
 	Ticker    Ticker
 	Trades    Trade
 	Orderbook Orderbook
 	Orders    Order
-
-	Results error
+	Results   error
 }
 
 type RowList []Row
@@ -95,31 +93,25 @@ type Orderbook struct {
 	Bids   [][]float64 `json:"bids"`
 	Asks   [][]float64 `json:"asks"`
 	Action string      `json:"action"`
-	// Time     decimal.Decimal `json:"time"`
-	// Checksum int             `json:"checksum"`
 }
 
-func subscribe(conn *websocket.Conn, channels, symbols []string) error {
+func subscribe(conn *websocket.Conn, channel string, symbols []string) error {
 	if symbols != nil {
-		for i := range channels {
-			for j := range symbols {
-				if err := conn.WriteJSON(&request{
-					Op:      "subscribe",
-					Channel: channels[i],
-					Market:  symbols[j],
-				}); err != nil {
-					return err
-				}
-			}
-		}
-	} else {
-		for i := range channels {
+		for j := range symbols {
 			if err := conn.WriteJSON(&request{
 				Op:      "subscribe",
-				Channel: channels[i],
+				Channel: channel,
+				Market:  symbols[j],
 			}); err != nil {
 				return err
 			}
+		}
+	} else {
+		if err := conn.WriteJSON(&request{
+			Op:      "subscribe",
+			Channel: channel,
+		}); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -141,7 +133,7 @@ EXIT:
 	return err
 }
 
-func Connect(ctx context.Context, ch chan Response, channels, symbols []string, l *log.Logger) error {
+func Connect(ctx context.Context, ch chan Response, channel string, symbols []string, l *log.Logger) error {
 	if l == nil {
 		l = log.New(os.Stdout, "ftx websocket", log.Llongfile)
 	}
@@ -153,7 +145,7 @@ func Connect(ctx context.Context, ch chan Response, channels, symbols []string, 
 		return err
 	}
 
-	if err := subscribe(conn, channels, symbols); err != nil {
+	if err := subscribe(conn, channel, symbols); err != nil {
 		return err
 	}
 
@@ -162,7 +154,6 @@ func Connect(ctx context.Context, ch chan Response, channels, symbols []string, 
 
 	go func() {
 		defer conn.Close()
-		// defer unsubscribe(conn, channels, symbols)
 
 	RESTART:
 		for {
@@ -274,7 +265,7 @@ func SortAsks(original []Row, new [][]float64) *[]Row {
 		convertNewObj = append(convertNewObj, test)
 	}
 
-	// fmt.Println("original length --> ", len(original))
+	fmt.Println("original length --> ", len(original))
 	fmt.Println("convertNewObj length --> ", len(convertNewObj))
 
 	original = append(original, convertNewObj...)
@@ -297,27 +288,24 @@ func SortAsks(original []Row, new [][]float64) *[]Row {
 	return &result
 }
 
-func main() {
+var Result map[string]RowList = make(map[string]RowList)
+
+func GetOrderbook() *map[string]RowList {
+	return &Result
+}
+
+func Start(pairs []string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	channels := []string{"orderbook"}
-	pairs := []string{"BTC-PERP", "ETH-PERP"}
+	channel := "orderbook"
 	ch := make(chan Response)
-	go Connect(ctx, ch, channels, pairs, nil)
-
-	result := make(map[string]RowList)
-	for _, val := range pairs {
-		result[val] = RowList{}
-	}
+	go Connect(ctx, ch, channel, pairs, nil)
 
 	for {
 		select {
 		case v := <-ch:
 			switch v.Type {
-			case TICKER:
-				fmt.Printf("%s	%+v\n", v.Symbol, v.Ticker)
-
 			case ORDERBOOK:
 				fmt.Printf("%s	%+v\n", v.Symbol, v.Orderbook)
 				fmt.Printf("Bids: %+v\n", v.Orderbook.Bids)
@@ -325,13 +313,26 @@ func main() {
 
 				fmt.Println("end result: ", v.Symbol)
 
-				result[v.Symbol] = *SortAsks(result[v.Symbol], v.Orderbook.Bids)
+				Result[v.Symbol] = *SortAsks(Result[v.Symbol], v.Orderbook.Bids)
 
-				fmt.Println("result --> ", result)
+				fmt.Println("result --> ", Result)
 
 			case UNDEFINED:
 				fmt.Printf("%s	%s\n", v.Symbol, v.Results.Error())
 			}
 		}
 	}
+}
+
+func main() {
+	pairs := []string{"BTC-PERP", "ETH-PERP"}
+	for _, val := range pairs {
+		Result[val] = RowList{}
+	}
+
+	Start(pairs)
+
+	test := GetOrderbook()
+	fmt.Print("main result --> ", test)
+
 }
