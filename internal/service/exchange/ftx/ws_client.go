@@ -228,7 +228,7 @@ func sortBids(original []Row, new [][]float64) *[]Row {
 	var result []Row
 	result = append(result, original[0])
 	for i := 1; i < len(original); i++ {
-		if result[len(result)-1].Price == original[i].Price && result[len(result)-1].Size < original[i].Size {
+		if result[len(result)-1].Price == original[i].Price {
 			result[len(result)-1].Size = original[i].Size
 		} else {
 			result = append(result, original[i])
@@ -255,7 +255,7 @@ func sortAsks(original []Row, new [][]float64) *[]Row {
 	var result []Row
 	result = append(result, original[0])
 	for i := 1; i < len(original); i++ {
-		if result[len(result)-1].Price == original[i].Price && result[len(result)-1].Size > original[i].Size {
+		if result[len(result)-1].Price == original[i].Price {
 			result[len(result)-1].Size = original[i].Size
 		} else {
 			result = append(result, original[i])
