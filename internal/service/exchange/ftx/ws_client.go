@@ -175,8 +175,8 @@ func Connect(ctx context.Context, ch chan Response, channel string, symbols []st
 					continue
 				}
 
-				ResultBids[res.Symbol] = *sortBids(ResultBids[res.Symbol], res.Orderbook.Bids)
-				ResultAsks[res.Symbol] = *sortAsks(ResultAsks[res.Symbol], res.Orderbook.Asks)
+				ResultBids[res.Symbol] = *sortOrderbooks(ResultBids[res.Symbol], res.Orderbook.Bids, "bids")
+				ResultAsks[res.Symbol] = *sortOrderbooks(ResultAsks[res.Symbol], res.Orderbook.Asks, "asks")
 
 				fmt.Println("result bids --> ", ResultBids)
 				fmt.Println("result asks --> ", ResultAsks)
@@ -215,42 +215,19 @@ func (e RowAsksList) Swap(i, j int) {
 	e[i], e[j] = e[j], e[i]
 }
 
-func sortBids(original []Row, new [][]float64) *[]Row {
+func sortOrderbooks(original []Row, new [][]float64, orderbookType string) *[]Row {
 	var convertNewObj []Row
-	for _, bids := range new {
-		bidsRow := Row{bids[0], bids[1]}
-		convertNewObj = append(convertNewObj, bidsRow)
+	for _, elem := range new {
+		orderbookRow := Row{elem[0], elem[1]}
+		convertNewObj = append(convertNewObj, orderbookRow)
 	}
 
 	original = append(original, convertNewObj...)
-	sort.Sort(RowBidsList(original))
-
-	var result []Row
-	result = append(result, original[0])
-	for i := 1; i < len(original); i++ {
-		if result[len(result)-1].Price == original[i].Price {
-			result[len(result)-1].Size = original[i].Size
-		} else {
-			result = append(result, original[i])
-		}
+	if orderbookType == "bids" {
+		sort.Sort(RowBidsList(original))
+	} else if orderbookType == "asks" {
+		sort.Sort(RowAsksList(original))
 	}
-
-	if len(result) > 50 {
-		result = result[:50]
-	}
-
-	return &result
-}
-
-func sortAsks(original []Row, new [][]float64) *[]Row {
-	var convertNewObj []Row
-	for _, asks := range new {
-		asksRow := Row{asks[0], asks[1]}
-		convertNewObj = append(convertNewObj, asksRow)
-	}
-
-	original = append(original, convertNewObj...)
-	sort.Sort(RowAsksList(original))
 
 	var result []Row
 	result = append(result, original[0])
