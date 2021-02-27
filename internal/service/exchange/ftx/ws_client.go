@@ -28,6 +28,11 @@ const (
 	ORDERBOOK
 )
 
+var (
+	ResultAsks map[string]RowAsksList = make(map[string]RowAsksList)
+	ResultBids map[string]RowBidsList = make(map[string]RowBidsList)
+)
+
 type request struct {
 	Op      string `json:"op"`
 	Channel string `json:"channel"`
@@ -41,20 +46,19 @@ type Response struct {
 	Results   error
 }
 
-type RowAsksList []Row
-type RowBidsList []Row
 type Row struct {
 	Price float64 `json:"price"`
 	Size  float64 `json:"size"`
 }
+
+type RowAsksList []Row
+
+type RowBidsList []Row
 type Orderbook struct {
 	Bids   [][]float64 `json:"bids"`
 	Asks   [][]float64 `json:"asks"`
 	Action string      `json:"action"`
 }
-
-var ResultAsks map[string]RowAsksList = make(map[string]RowAsksList)
-var ResultBids map[string]RowBidsList = make(map[string]RowBidsList)
 
 func subscribe(conn *websocket.Conn, channel string, symbols []string) error {
 	if symbols != nil {
