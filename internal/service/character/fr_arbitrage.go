@@ -8,6 +8,7 @@ package character
 import (
 	"fmt"
 	"math"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -18,12 +19,13 @@ import (
 )
 
 type future struct {
-	name         string
-	spotPair     string
-	perpPair     string
-	quarterPair  string
-	hedgePair    string
-	fundingRates []float64
+	name           string
+	spotPair       string
+	perpPair       string
+	quarterPair    string
+	hedgePair      string
+	isCollaterable bool
+	fundingRates   []float64
 	// consecutive count of same sign funding rate
 	consCount int
 	// average APR for a period of time
@@ -97,7 +99,8 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
 		// buy sell spread should be smaller than startSpreadRate
 		startBuySellSpreadRate: 0.01,
 		// future spot spread should be larger to start position
-		startFutureSpotSpreadRate: 0.003,
+		// 0.005 - 0.002 should > fee 0.0007 * 4
+		startFutureSpotSpreadRate: 0.005,
 		// future spot spread should be smaller to stop position
 		stopFutureSpotSpreadRate: 0.002,
 		// previous data we used to calculate avgAPR
@@ -187,7 +190,8 @@ func (fra *FRArb) genSignal(future *future) {
 	}
 	innerSpreadRate := fra.calculateStartSpreadRate(highPair, lowPair)
 	util.Info(fra.tag, fmt.Sprintf("%s inner spread rate %.4f\n", future.name, innerSpreadRate))
-	shouldStart := future.size == 0 && innerSpreadRate >= fra.startFutureSpotSpreadRate
+	canPerfectLeverage := nextFundingRate < 0 || future.isCollaterable
+	shouldStart := future.size == 0 && innerSpreadRate >= fra.startFutureSpotSpreadRate && canPerfectLeverage
 	if shouldStart {
 		util.Info(fra.tag, "profitable: "+future.name)
 		fra.send("profitable: " + future.name + "\n" + fmt.Sprintf("avgAPR: %.2f%%", future.avgAPR*100))
@@ -249,9 +253,8 @@ func (fra *FRArb) sendFutureStatusReport() {
 				future.fundingRates[0], fra.fundingRateToAPR(future.fundingRates[0])*100)
 			currentHedgeProfitROI := future.currentHedgeProfit / math.Abs(future.size)
 			msg += fmt.Sprintf("hedgePair: %s\n", future.hedgePair)
-			_, isCollaterable := fra.ftx.CollaterableSpots[future.name]
-			canPerfectLeverage := future.size >= 0 || isCollaterable
-			msg += fmt.Sprintf("isCollaterable: %t, canPerfectLeverage: %t\n", isCollaterable, canPerfectLeverage)
+			canPerfectLeverage := future.size >= 0 || future.isCollaterable
+			msg += fmt.Sprintf("isCollaterable: %t, canPerfectLeverage: %t\n", future.isCollaterable, canPerfectLeverage)
 			msg += fmt.Sprintf("current hedge profit: %.2f (%.2f%%)\n",
 				future.currentHedgeProfit, currentHedgeProfitROI*100)
 			msg += fmt.Sprintf("total profit: %.2f\n", future.totalProfit)
@@ -384,9 +387,11 @@ func (fra *FRArb) createFutures() {
 		_, isSpotPairExist := spotPairs[spotPair]
 		_, isQuarterPairExist := quarterPairs[quarterPair]
 		if isSpotPairExist {
+			_, isCollaterable := fra.ftx.CollaterableSpots[spotName]
 			f := &future{
-				name:     spotName,
-				perpPair: perpPairName,
+				name:           spotName,
+				perpPair:       perpPairName,
+				isCollaterable: isCollaterable,
 			}
 			if isSpotPairExist {
 				f.spotPair = spotPair
@@ -407,8 +412,8 @@ func (fra *FRArb) createFutures() {
 	}
 }
 func (fra *FRArb) Start() {
-	//value, exist := os.LookupEnv("ENV")
-	//isTestEnv := exist && value == "test"
+	value, exist := os.LookupEnv("ENV")
+	isTestEnv := exist && value == "test"
 	fra.createFutures()
 	for {
 		now := time.Now().Unix()
@@ -434,7 +439,7 @@ func (fra *FRArb) Start() {
 		}
 		// 30 seconds left to one hour, get next funding rate
 		getFundingRateOffset := 60*60 - fra.updatePeriod*2
-		if now%(60*60) == getFundingRateOffset {
+		if now%(60*60) == getFundingRateOffset || isTestEnv {
 			for _, future := range fra.futures {
 				resp := fra.ftx.GetFutureStats(future.perpPair)
 				nextFundingRate := resp.NextFundingRate
