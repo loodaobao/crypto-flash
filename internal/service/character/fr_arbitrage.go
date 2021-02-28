@@ -82,7 +82,7 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
 		// config
 		quarterContractName: "0326",
 		// period of main loop in minute
-		updatePeriod: 1,
+		updatePeriod: 30,
 		// period of report in hour
 		reportPeriod:         1,
 		blacklistFutureNames: []string{},
@@ -97,8 +97,8 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
 		// buy sell spread should be smaller than startSpreadRate
 		startBuySellSpreadRate: 0.01,
 		// future spot spread should be larger to start position
-		// 0.005 - 0.002 should > fee 0.0007 * 4
-		startFutureSpotSpreadRate: 0.005,
+		// start - stop should > fee (0.0007 * 4)
+		startFutureSpotSpreadRate: 0.01,
 		// future spot spread should be smaller to stop position
 		stopFutureSpotSpreadRate: 0.002,
 		// previous data we used to calculate avgAPR
@@ -135,18 +135,14 @@ func (fra *FRArb) calculateSpreadRate(marketPair string) float64 {
 	buyPrice, _ := ob.GetMarketBuyPrice()
 	return (sellPrice - buyPrice) / buyPrice
 }
-func (fra *FRArb) calculateStartSpreadRate(highPair, lowPair string) float64 {
+func (fra *FRArb) calculateStartSpreadRate(highOrderbook, lowOrderbook *util.Orderbook) float64 {
 	// high pair is the one we want to short
-	highOrderbook := fra.ftx.GetOrderbook(highPair, 1)
-	lowOrderbook := fra.ftx.GetOrderbook(lowPair, 1)
 	highPrice, _ := highOrderbook.GetMarketSellPrice()
 	lowPrice, _ := lowOrderbook.GetMarketBuyPrice()
 	return (highPrice - lowPrice) / lowPrice
 }
-func (fra *FRArb) calculateStopSpreadRate(highPair, lowPair string) float64 {
+func (fra *FRArb) calculateStopSpreadRate(highOrderbook, lowOrderbook *util.Orderbook) float64 {
 	// high pair is the one we want to buy back
-	highOrderbook := fra.ftx.GetOrderbook(highPair, 1)
-	lowOrderbook := fra.ftx.GetOrderbook(lowPair, 1)
 	highPrice, _ := highOrderbook.GetMarketBuyPrice()
 	lowPrice, _ := lowOrderbook.GetMarketSellPrice()
 	return (highPrice - lowPrice) / lowPrice
@@ -176,7 +172,9 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 	if nextFundingRate < 0 {
 		highPair, lowPair = lowPair, highPair
 	}
-	outerSpreadRate := fra.calculateStopSpreadRate(highPair, lowPair)
+	highOrderbook := fra.ftx.GetOrderbook(highPair, 1)
+	lowOrderbook := fra.ftx.GetOrderbook(lowPair, 1)
+	outerSpreadRate := fra.calculateStopSpreadRate(highOrderbook, lowOrderbook)
 	util.Info(fra.tag, fmt.Sprintf("%s outer spread rate: %.4f", future.name, outerSpreadRate))
 	shouldStop, shouldStart := false, false
 	shouldStop = future.size != 0 && ((future.size*nextFundingRate > 0 && -nextFundingAPR <= fra.stopAPRThreshold) ||
@@ -186,7 +184,7 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 		fra.send("not profitable: " + future.name)
 		return shouldStop, shouldStart
 	}
-	innerSpreadRate := fra.calculateStartSpreadRate(highPair, lowPair)
+	innerSpreadRate := fra.calculateStartSpreadRate(highOrderbook, lowOrderbook)
 	util.Info(fra.tag, fmt.Sprintf("%s inner spread rate %.4f\n", future.name, innerSpreadRate))
 	canPerfectLeverage := nextFundingRate < 0 || future.isCollaterable
 	shouldStart = future.size == 0 && innerSpreadRate >= fra.startFutureSpotSpreadRate && canPerfectLeverage
@@ -414,8 +412,11 @@ func (fra *FRArb) Start() {
 	isTestEnv := exist && value == "test"
 	fra.createFutures()
 	startFuturesInThisHour := make(map[string]bool)
+	prev := time.Now().Unix()
 	for {
 		now := time.Now().Unix()
+		util.Info(fra.tag, fmt.Sprintf("time used: %d second\n", now-prev))
+		prev = now
 		var stopFutures, startFutures []*future
 		// TODO: check existing position every updatePeriod
 		// check spread every second
