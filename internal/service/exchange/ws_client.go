@@ -1,6 +1,6 @@
-package main
-
 // Ref: https://github.com/go-numb/go-ftx/blob/3144aa68f5/realtime/websocket.go
+
+package exchange
 
 import (
 	"context"
@@ -29,8 +29,7 @@ const (
 )
 
 var (
-	ResultAsks map[string]RowAsksList = make(map[string]RowAsksList)
-	ResultBids map[string]RowBidsList = make(map[string]RowBidsList)
+	OrderbookRes map[string]*PairsRow = make(map[string]*PairsRow)
 )
 
 type request struct {
@@ -51,9 +50,14 @@ type Row struct {
 	Size  float64 `json:"size"`
 }
 
-type RowAsksList []Row
+type AsksRow []Row
 
-type RowBidsList []Row
+type BidsRow []Row
+
+type PairsRow struct {
+	AsksRow []Row
+	BidsRow []Row
+}
 type Orderbook struct {
 	Bids   [][]float64 `json:"bids"`
 	Asks   [][]float64 `json:"asks"`
@@ -74,6 +78,28 @@ func subscribe(conn *websocket.Conn, channel string, symbols []string) error {
 	} else {
 		if err := conn.WriteJSON(&request{
 			Op:      "subscribe",
+			Channel: channel,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func unsubscribe(conn *websocket.Conn, channel string, symbols []string) error {
+	if symbols != nil {
+		for j := range symbols {
+			if err := conn.WriteJSON(&request{
+				Op:      "unsubscribe",
+				Channel: channel,
+				Market:  symbols[j],
+			}); err != nil {
+				return err
+			}
+		}
+	} else {
+		if err := conn.WriteJSON(&request{
+			Op:      "unsubscribe",
 			Channel: channel,
 		}); err != nil {
 			return err
@@ -119,6 +145,7 @@ func Connect(ctx context.Context, ch chan Response, channel string, symbols []st
 
 	go func() {
 		defer conn.Close()
+		defer unsubscribe(conn, channel, symbols)
 
 	RESTART:
 		for {
@@ -179,11 +206,19 @@ func Connect(ctx context.Context, ch chan Response, channel string, symbols []st
 					continue
 				}
 
-				ResultBids[res.Symbol] = *sortOrderbooks(ResultBids[res.Symbol], res.Orderbook.Bids, "bids")
-				ResultAsks[res.Symbol] = *sortOrderbooks(ResultAsks[res.Symbol], res.Orderbook.Asks, "asks")
+				// Sort of Bids
+				OrderbookRes[res.Symbol].BidsRow = *sortOrderbooks(
+					OrderbookRes[res.Symbol].BidsRow,
+					res.Orderbook.Bids,
+					"bids",
+				)
 
-				fmt.Println("result bids --> ", ResultBids)
-				fmt.Println("result asks --> ", ResultAsks)
+				// Sort of Asks
+				OrderbookRes[res.Symbol].AsksRow = *sortOrderbooks(
+					OrderbookRes[res.Symbol].AsksRow,
+					res.Orderbook.Asks,
+					"asks",
+				)
 
 			default:
 				res.Type = UNDEFINED
@@ -195,27 +230,27 @@ func Connect(ctx context.Context, ch chan Response, channel string, symbols []st
 	return nil
 }
 
-func (e RowBidsList) Len() int {
+func (e BidsRow) Len() int {
 	return len(e)
 }
 
-func (e RowAsksList) Len() int {
+func (e AsksRow) Len() int {
 	return len(e)
 }
 
-func (e RowBidsList) Less(i, j int) bool {
+func (e BidsRow) Less(i, j int) bool {
 	return e[i].Price > e[j].Price
 }
 
-func (e RowAsksList) Less(i, j int) bool {
+func (e AsksRow) Less(i, j int) bool {
 	return e[i].Price < e[j].Price
 }
 
-func (e RowBidsList) Swap(i, j int) {
+func (e BidsRow) Swap(i, j int) {
 	e[i], e[j] = e[j], e[i]
 }
 
-func (e RowAsksList) Swap(i, j int) {
+func (e AsksRow) Swap(i, j int) {
 	e[i], e[j] = e[j], e[i]
 }
 
@@ -228,9 +263,9 @@ func sortOrderbooks(original []Row, new [][]float64, orderbookType string) *[]Ro
 
 	original = append(original, convertNewObj...)
 	if orderbookType == "bids" {
-		sort.Sort(RowBidsList(original))
+		sort.Sort(BidsRow(original))
 	} else if orderbookType == "asks" {
-		sort.Sort(RowAsksList(original))
+		sort.Sort(AsksRow(original))
 	}
 
 	var result []Row
@@ -250,54 +285,25 @@ func sortOrderbooks(original []Row, new [][]float64, orderbookType string) *[]Ro
 	return &result
 }
 
-func Start(pairs []string) {
+func GetOrderbookRes() map[string]*PairsRow {
+	return OrderbookRes
+}
+
+func SubscribeOrderbook(pairs []string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// initial pairs
+	for _, val := range pairs {
+		OrderbookRes[val] = &PairsRow{
+			BidsRow{},
+			AsksRow{},
+		}
+	}
 
 	channel := "orderbook"
 	ch := make(chan Response)
 	go Connect(ctx, ch, channel, pairs, nil)
 
-	time.Sleep(1 * time.Second)
-	fmt.Println("1st Result: ", ResultBids)
-	fmt.Println("1st Result: ", ResultAsks)
-
-	time.Sleep(1 * time.Second)
-	fmt.Println("2nd Result: ", ResultBids)
-	fmt.Println("2nd Result: ", ResultAsks)
-
-}
-
-var OrderbookResult OrderbookStruct
-
-type OrderbookStruct struct {
-	Bids map[string]RowBidsList `json:"bids"`
-	Asks map[string]RowAsksList `json:"asks"`
-}
-
-func test() {
-	pairs := []string{"BTC-PERP", "ETH-PERP"}
-	for _, val := range pairs {
-		ResultBids[val] = RowBidsList{}
-		ResultAsks[val] = RowAsksList{}
-	}
-
-	Start(pairs)
-	fmt.Println("main bids result --> ", ResultBids)
-
-	fmt.Println("main asks result --> ", ResultAsks)
-
-	// OrderbookResult := &OrderbookStruct{
-	// 	Bids: ResultBids,
-	// 	Asks: ResultAsks,
-	// }
-
-	// return OrderbookResult
-
-}
-
-func main() {
-	test()
-	// fmt.Println("Final ask result --> ", OrderbookResult.Asks)
-	// fmt.Println("Final bids result --> ", OrderbookResult.Bids)
+	return nil
 }
