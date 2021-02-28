@@ -8,7 +8,6 @@ package character
 import (
 	"fmt"
 	"math"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -57,6 +56,7 @@ type FRArb struct {
 	stopFutureSpotSpreadRate  float64
 	prevRateDays              int64
 	minAmount                 float64
+	freeBalanceAllocateRate   float64
 	// data
 	freeBalance  float64
 	futures      map[string]*future
@@ -82,7 +82,7 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
 		// config
 		quarterContractName: "0326",
 		// period of main loop in minute
-		updatePeriod: 15,
+		updatePeriod: 1,
 		// period of report in hour
 		reportPeriod:         1,
 		blacklistFutureNames: []string{},
@@ -92,21 +92,23 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
 		longTime: 1 * 24,
 		// start arbitrage if APR is more then this threshold
 		startAPRThreshold: 8,
-		// end arbitrage if APR is smaller then this threshold
+		// stop arbitrage if APR is smaller then this threshold (should <= 0)
 		stopAPRThreshold: 0,
 		// buy sell spread should be smaller than startSpreadRate
 		startBuySellSpreadRate: 0.01,
 		// future spot spread should be larger to start position
-		startFutureSpotSpreadRate: 0.03,
+		startFutureSpotSpreadRate: 0.003,
 		// future spot spread should be smaller to stop position
-		stopFutureSpotSpreadRate: 0.03,
+		stopFutureSpotSpreadRate: 0.002,
 		// previous data we used to calculate avgAPR
 		prevRateDays: 7,
 		// minimum USD amount to start a pair (perp + quarter)
 		minAmount: 10,
+		// each time we allocate this rate of balance
+		freeBalanceAllocateRate: 0.2,
 		// data
 		futures:     make(map[string]*future),
-		freeBalance: 1000000,
+		freeBalance: 10000,
 	}
 }
 func (fra *FRArb) fundingRateToAPR(fundingRate float64) float64 {
@@ -173,19 +175,19 @@ func (fra *FRArb) genSignal(future *future) {
 	if nextFundingRate < 0 {
 		highPair, lowPair = lowPair, highPair
 	}
-	stopSpreadRate := fra.calculateStopSpreadRate(highPair, lowPair)
-	shouldStop := ((future.size*nextFundingRate) > 0 && -nextFundingAPR <= fra.stopAPRThreshold ||
-		stopSpreadRate <= fra.stopFutureSpotSpreadRate)
+	outerSpreadRate := fra.calculateStopSpreadRate(highPair, lowPair)
+	util.Info(fra.tag, fmt.Sprintf("%s outer spread rate: %.4f", future.name, outerSpreadRate))
+	shouldStop := future.size != 0 && ((future.size*nextFundingRate) > 0 && -nextFundingAPR <= fra.stopAPRThreshold ||
+		outerSpreadRate <= fra.stopFutureSpotSpreadRate)
 	if shouldStop {
 		util.Info(fra.tag, "not profitable: "+future.name)
 		fra.send("not profitable: " + future.name)
 		fra.stopFutures = append(fra.stopFutures, future)
 		return
 	}
-	//perpSpreadRate := fra.calculateSpreadRate(future.perpPair)
-	//hedgeSpreadRate := fra.calculateSpreadRate(future.hedgePair)
-	startSpreadRate := fra.calculateStartSpreadRate(highPair, lowPair)
-	shouldStart := future.size == 0 && startSpreadRate >= fra.startFutureSpotSpreadRate
+	innerSpreadRate := fra.calculateStartSpreadRate(highPair, lowPair)
+	util.Info(fra.tag, fmt.Sprintf("%s inner spread rate %.4f\n", future.name, innerSpreadRate))
+	shouldStart := future.size == 0 && innerSpreadRate >= fra.startFutureSpotSpreadRate
 	if shouldStart {
 		util.Info(fra.tag, "profitable: "+future.name)
 		fra.send("profitable: " + future.name + "\n" + fmt.Sprintf("avgAPR: %.2f%%", future.avgAPR*100))
@@ -381,7 +383,7 @@ func (fra *FRArb) createFutures() {
 		spotPair := spotName + "/USD"
 		_, isSpotPairExist := spotPairs[spotPair]
 		_, isQuarterPairExist := quarterPairs[quarterPair]
-		if isSpotPairExist || isQuarterPairExist {
+		if isSpotPairExist {
 			f := &future{
 				name:     spotName,
 				perpPair: perpPairName,
@@ -405,15 +407,34 @@ func (fra *FRArb) createFutures() {
 	}
 }
 func (fra *FRArb) Start() {
-	value, exist := os.LookupEnv("ENV")
-	isTestEnv := exist && value == "test"
+	//value, exist := os.LookupEnv("ENV")
+	//isTestEnv := exist && value == "test"
 	fra.createFutures()
 	for {
 		now := time.Now().Unix()
 		// TODO: check existing position every updatePeriod
-		// one hour and 15 second just passed, get next funding rate
+		// check spread every second
+		for _, future := range fra.futures {
+			fra.genSignal(future)
+		}
+		for _, future := range fra.stopFutures {
+			fra.stopPair(future)
+		}
+		util.Info(fra.tag,
+			fmt.Sprintf("free balance: %f, start pair count: %d", fra.freeBalance, len(fra.startFutures)))
+		startFutureCount := float64(len(fra.startFutures))
+		allocatedBalance := fra.freeBalance * fra.freeBalanceAllocateRate
+		if startFutureCount > 0 && allocatedBalance >= fra.minAmount*startFutureCount {
+			pairPortion := allocatedBalance / startFutureCount
+			size := pairPortion / 2 * fra.leverage
+			for _, future := range fra.startFutures {
+				fra.startPair(future, size)
+			}
+			fra.freeBalance -= allocatedBalance
+		}
+		// 30 seconds left to one hour, get next funding rate
 		getFundingRateOffset := 60*60 - fra.updatePeriod*2
-		if now%(60*60) == getFundingRateOffset || isTestEnv {
+		if now%(60*60) == getFundingRateOffset {
 			for _, future := range fra.futures {
 				resp := fra.ftx.GetFutureStats(future.perpPair)
 				nextFundingRate := resp.NextFundingRate
@@ -422,23 +443,9 @@ func (fra *FRArb) Start() {
 					end = len(future.fundingRates)
 				}
 				future.fundingRates = append([]float64{nextFundingRate}, future.fundingRates[:end]...)
-				fra.genSignal(future)
-			}
-			for _, future := range fra.stopFutures {
-				fra.stopPair(future)
-			}
-			util.Info(fra.tag,
-				fmt.Sprintf("free balance: %f, start pair count: %d", fra.freeBalance, len(fra.startFutures)))
-			startFutureCount := float64(len(fra.startFutures))
-			if startFutureCount > 0 && fra.freeBalance >= fra.minAmount*startFutureCount {
-				pairPortion := fra.freeBalance / startFutureCount
-				size := pairPortion / 2 * fra.leverage
-				for _, future := range fra.startFutures {
-					fra.startPair(future, size)
-				}
-				fra.freeBalance = 0
 			}
 			// update profit and current hedge profit
+			// TODO: remove start future with start future in hour
 			isInStartFutures := func(future *future) bool {
 				for _, startFuture := range fra.startFutures {
 					if future == startFuture {
