@@ -257,8 +257,11 @@ func (e AsksRow) Swap(i, j int) {
 func sortOrderbooks(original []Row, new [][]float64, orderbookType string) *[]Row {
 	var convertNewObj []Row
 	for _, elem := range new {
-		orderbookRow := Row{elem[0], elem[1]}
-		convertNewObj = append(convertNewObj, orderbookRow)
+		// Filter size = 0
+		if elem[1] > 0 {
+			orderbookRow := Row{elem[0], elem[1]}
+			convertNewObj = append(convertNewObj, orderbookRow)
+		}
 	}
 
 	original = append(original, convertNewObj...)
