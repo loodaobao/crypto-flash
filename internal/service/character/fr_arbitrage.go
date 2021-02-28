@@ -44,17 +44,19 @@ type FRArb struct {
 	SignalProvider
 	ftx *exchange.FTX
 	// strategy config
-	quarterContractName  string
-	updatePeriod         int64
-	reportPeriod         int64
-	blacklistFutureNames []string
-	leverage             float64
-	longTime             int
-	startAPRThreshold    float64
-	endAPRThreshold      float64
-	startSpreadRate      float64
-	prevRateDays         int64
-	minAmount            float64
+	quarterContractName       string
+	updatePeriod              int64
+	reportPeriod              int64
+	blacklistFutureNames      []string
+	leverage                  float64
+	longTime                  int
+	startAPRThreshold         float64
+	stopAPRThreshold          float64
+	startBuySellSpreadRate    float64
+	startFutureSpotSpreadRate float64
+	stopFutureSpotSpreadRate  float64
+	prevRateDays              int64
+	minAmount                 float64
 	// data
 	freeBalance  float64
 	futures      map[string]*future
@@ -91,9 +93,13 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
 		// start arbitrage if APR is more then this threshold
 		startAPRThreshold: 8,
 		// end arbitrage if APR is smaller then this threshold
-		endAPRThreshold: 0,
-		// spread should be smaller than startSpreadRate
-		startSpreadRate: 0.01,
+		stopAPRThreshold: 0,
+		// buy sell spread should be smaller than startSpreadRate
+		startBuySellSpreadRate: 0.01,
+		// future spot spread should be larger to start position
+		startFutureSpotSpreadRate: 0.03,
+		// future spot spread should be smaller to stop position
+		stopFutureSpotSpreadRate: 0.03,
 		// previous data we used to calculate avgAPR
 		prevRateDays: 7,
 		// minimum USD amount to start a pair (perp + quarter)
@@ -126,6 +132,22 @@ func (fra *FRArb) calculateSpreadRate(marketPair string) float64 {
 	buyPrice, _ := ob.GetMarketBuyPrice()
 	return (sellPrice - buyPrice) / buyPrice
 }
+func (fra *FRArb) calculateStartSpreadRate(highPair, lowPair string) float64 {
+	// high pair is the one we want to short
+	highOrderbook := fra.ftx.GetOrderbook(highPair, 1)
+	lowOrderbook := fra.ftx.GetOrderbook(lowPair, 1)
+	highPrice, _ := highOrderbook.GetMarketSellPrice()
+	lowPrice, _ := lowOrderbook.GetMarketBuyPrice()
+	return (highPrice - lowPrice) / lowPrice
+}
+func (fra *FRArb) calculateStopSpreadRate(highPair, lowPair string) float64 {
+	// high pair is the one we want to buy back
+	highOrderbook := fra.ftx.GetOrderbook(highPair, 1)
+	lowOrderbook := fra.ftx.GetOrderbook(lowPair, 1)
+	highPrice, _ := highOrderbook.GetMarketBuyPrice()
+	lowPrice, _ := lowOrderbook.GetMarketSellPrice()
+	return (highPrice - lowPrice) / lowPrice
+}
 func (fra *FRArb) genSignal(future *future) {
 	fundingRates := future.fundingRates
 	nextFundingRate := fundingRates[0]
@@ -146,18 +168,25 @@ func (fra *FRArb) genSignal(future *future) {
 	toAnnual := float64(365*24) / float64(len(fundingRates))
 	future.avgAPR = math.Abs(totalRate) * toAnnual * fra.leverage / 2
 	util.Info(fra.tag, future.name, fmt.Sprintf("avgAPR: %.2f%%", future.avgAPR*100))
-	shouldEnd := (future.size*nextFundingRate) > 0 && -nextFundingAPR <= fra.endAPRThreshold
-	if shouldEnd {
+	highPair := future.perpPair
+	lowPair := future.hedgePair
+	if nextFundingRate < 0 {
+		highPair, lowPair = lowPair, highPair
+	}
+	stopSpreadRate := fra.calculateStopSpreadRate(highPair, lowPair)
+	shouldStop := ((future.size*nextFundingRate) > 0 && -nextFundingAPR <= fra.stopAPRThreshold ||
+		stopSpreadRate <= fra.stopFutureSpotSpreadRate)
+	if shouldStop {
 		util.Info(fra.tag, "not profitable: "+future.name)
 		fra.send("not profitable: " + future.name)
 		fra.stopFutures = append(fra.stopFutures, future)
 		return
 	}
-	perpSpreadRate := fra.calculateSpreadRate(future.perpPair)
-	hedgeSpreadRate := fra.calculateSpreadRate(future.hedgePair)
-	shouldStart := nextFundingAPR >= fra.startAPRThreshold &&
-		perpSpreadRate <= fra.startSpreadRate && hedgeSpreadRate <= fra.startSpreadRate
-	if shouldStart && future.size == 0 {
+	//perpSpreadRate := fra.calculateSpreadRate(future.perpPair)
+	//hedgeSpreadRate := fra.calculateSpreadRate(future.hedgePair)
+	startSpreadRate := fra.calculateStartSpreadRate(highPair, lowPair)
+	shouldStart := future.size == 0 && startSpreadRate >= fra.startFutureSpotSpreadRate
+	if shouldStart {
 		util.Info(fra.tag, "profitable: "+future.name)
 		fra.send("profitable: " + future.name + "\n" + fmt.Sprintf("avgAPR: %.2f%%", future.avgAPR*100))
 		fra.startFutures = append(fra.startFutures, future)
