@@ -21,14 +21,15 @@ import (
 )
 
 const (
-	host           string = "https://ftx.com"
-	marketAPI      string = "/api/markets"
-	walletAPI      string = "/api/wallet/balances"
-	orderAPI       string = "/api/orders"
-	condOrderAPI   string = "/api/conditional_orders"
-	positionAPI    string = "/api/positions"
-	futureAPI      string = "/api/futures"
-	fundingRateAPI string = "/api/funding_rates"
+	host                     string = "https://ftx.com"
+	marketAPI                string = "/api/markets"
+	walletAPI                string = "/api/wallet/balances"
+	orderAPI                 string = "/api/orders"
+	condOrderAPI             string = "/api/conditional_orders"
+	positionAPI              string = "/api/positions"
+	futureAPI                string = "/api/futures"
+	fundingRateAPI           string = "/api/funding_rates"
+	spotMarginBorrowRatesAPI string = "/api/spot_margin/borrow_rates"
 )
 
 type FTX struct {
@@ -464,4 +465,32 @@ func (ftx *FTX) GetMarketPairs() (*MarketPairs, error) {
 	}
 
 	return &marketPairs, nil
+}
+
+type SpotMarginBorrowRate struct {
+	Coin     string  `json:"coin"`
+	Estimate float64 `json:"estimate"`
+	Previous float64 `json:"previous"`
+}
+
+// Get spot margin borrow rates
+func (ftx *FTX) GetspotMarginBorrowRates() (*[]SpotMarginBorrowRate, error) {
+	type res struct {
+		Success bool
+		Result  []SpotMarginBorrowRate
+	}
+
+	var resObj res
+	url := host + spotMarginBorrowRatesAPI
+	header := ftx.genAuthHeader("GET", spotMarginBorrowRatesAPI, "")
+	ftx.restClient.Get(url, header, nil, &resObj)
+
+	if !resObj.Success {
+		fmt.Println(resObj)
+		errorMsg := fmt.Sprintf("Get spot margin borrow rates error")
+		util.Error(ftx.tag, errorMsg)
+		return nil, errors.New(errorMsg)
+	}
+
+	return &resObj.Result, nil
 }
