@@ -4,12 +4,12 @@ package exchange
 
 import (
 	"context"
+	util "crypto-flash/internal/service/util"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/buger/jsonparser"
@@ -29,7 +29,7 @@ const (
 )
 
 var (
-	OrderbookRes map[string]*PairsRow = make(map[string]*PairsRow)
+	OrderbookRes map[string]*util.Orderbook = make(map[string]*util.Orderbook)
 )
 
 type request struct {
@@ -45,19 +45,6 @@ type Response struct {
 	Results   error
 }
 
-type Row struct {
-	Price float64 `json:"price"`
-	Size  float64 `json:"size"`
-}
-
-type AsksRow []Row
-
-type BidsRow []Row
-
-type PairsRow struct {
-	AsksRow []Row
-	BidsRow []Row
-}
 type Orderbook struct {
 	Bids   [][]float64 `json:"bids"`
 	Asks   [][]float64 `json:"asks"`
@@ -207,15 +194,15 @@ func Connect(ctx context.Context, ch chan Response, channel string, symbols []st
 				}
 
 				// Sort of Bids
-				OrderbookRes[res.Symbol].BidsRow = *sortOrderbooks(
-					OrderbookRes[res.Symbol].BidsRow,
+				OrderbookRes[res.Symbol].Bids = *util.SortOrderbooks(
+					OrderbookRes[res.Symbol].Bids,
 					res.Orderbook.Bids,
 					"bids",
 				)
 
 				// Sort of Asks
-				OrderbookRes[res.Symbol].AsksRow = *sortOrderbooks(
-					OrderbookRes[res.Symbol].AsksRow,
+				OrderbookRes[res.Symbol].Asks = *util.SortOrderbooks(
+					OrderbookRes[res.Symbol].Asks,
 					res.Orderbook.Asks,
 					"asks",
 				)
@@ -230,65 +217,7 @@ func Connect(ctx context.Context, ch chan Response, channel string, symbols []st
 	return nil
 }
 
-func (e BidsRow) Len() int {
-	return len(e)
-}
-
-func (e AsksRow) Len() int {
-	return len(e)
-}
-
-func (e BidsRow) Less(i, j int) bool {
-	return e[i].Price > e[j].Price
-}
-
-func (e AsksRow) Less(i, j int) bool {
-	return e[i].Price < e[j].Price
-}
-
-func (e BidsRow) Swap(i, j int) {
-	e[i], e[j] = e[j], e[i]
-}
-
-func (e AsksRow) Swap(i, j int) {
-	e[i], e[j] = e[j], e[i]
-}
-
-func sortOrderbooks(original []Row, new [][]float64, orderbookType string) *[]Row {
-	var convertNewObj []Row
-	for _, elem := range new {
-		// Filter size = 0
-		if elem[1] > 0 {
-			orderbookRow := Row{elem[0], elem[1]}
-			convertNewObj = append(convertNewObj, orderbookRow)
-		}
-	}
-
-	original = append(original, convertNewObj...)
-	if orderbookType == "bids" {
-		sort.Sort(BidsRow(original))
-	} else if orderbookType == "asks" {
-		sort.Sort(AsksRow(original))
-	}
-
-	var result []Row
-	result = append(result, original[0])
-	for i := 1; i < len(original); i++ {
-		if result[len(result)-1].Price == original[i].Price {
-			result[len(result)-1].Size = original[i].Size
-		} else {
-			result = append(result, original[i])
-		}
-	}
-
-	if len(result) > 50 {
-		result = result[:50]
-	}
-
-	return &result
-}
-
-func GetOrderbookRes() map[string]*PairsRow {
+func GetOrderbookRes() map[string]*util.Orderbook {
 	return OrderbookRes
 }
 
@@ -298,9 +227,9 @@ func SubscribeOrderbook(pairs []string) error {
 
 	// initial pairs
 	for _, val := range pairs {
-		OrderbookRes[val] = &PairsRow{
-			BidsRow{},
-			AsksRow{},
+		OrderbookRes[val] = &util.Orderbook{
+			Bids: []util.Row{},
+			Asks: []util.Row{},
 		}
 	}
 
