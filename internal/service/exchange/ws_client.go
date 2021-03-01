@@ -4,6 +4,7 @@ package exchange
 
 import (
 	"context"
+	util "crypto-flash/internal/service/util"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -29,7 +30,7 @@ const (
 )
 
 var (
-	OrderbookRes map[string]*PairsRow = make(map[string]*PairsRow)
+	OrderbookRes map[string]*util.Orderbook = make(map[string]*util.Orderbook)
 )
 
 type request struct {
@@ -45,19 +46,10 @@ type Response struct {
 	Results   error
 }
 
-type Row struct {
-	Price float64 `json:"price"`
-	Size  float64 `json:"size"`
-}
+type AsksRow []util.Row
 
-type AsksRow []Row
+type BidsRow []util.Row
 
-type BidsRow []Row
-
-type PairsRow struct {
-	AsksRow []Row
-	BidsRow []Row
-}
 type Orderbook struct {
 	Bids   [][]float64 `json:"bids"`
 	Asks   [][]float64 `json:"asks"`
@@ -207,15 +199,15 @@ func Connect(ctx context.Context, ch chan Response, channel string, symbols []st
 				}
 
 				// Sort of Bids
-				OrderbookRes[res.Symbol].BidsRow = *sortOrderbooks(
-					OrderbookRes[res.Symbol].BidsRow,
+				OrderbookRes[res.Symbol].Bids = *sortOrderbooks(
+					OrderbookRes[res.Symbol].Bids,
 					res.Orderbook.Bids,
 					"bids",
 				)
 
 				// Sort of Asks
-				OrderbookRes[res.Symbol].AsksRow = *sortOrderbooks(
-					OrderbookRes[res.Symbol].AsksRow,
+				OrderbookRes[res.Symbol].Asks = *sortOrderbooks(
+					OrderbookRes[res.Symbol].Asks,
 					res.Orderbook.Asks,
 					"asks",
 				)
@@ -254,12 +246,12 @@ func (e AsksRow) Swap(i, j int) {
 	e[i], e[j] = e[j], e[i]
 }
 
-func sortOrderbooks(original []Row, new [][]float64, orderbookType string) *[]Row {
-	var convertNewObj []Row
+func sortOrderbooks(original []util.Row, new [][]float64, orderbookType string) *[]util.Row {
+	var convertNewObj []util.Row
 	for _, elem := range new {
 		// Filter size = 0
 		if elem[1] > 0 {
-			orderbookRow := Row{elem[0], elem[1]}
+			orderbookRow := util.Row{elem[0], elem[1]}
 			convertNewObj = append(convertNewObj, orderbookRow)
 		}
 	}
@@ -271,7 +263,7 @@ func sortOrderbooks(original []Row, new [][]float64, orderbookType string) *[]Ro
 		sort.Sort(AsksRow(original))
 	}
 
-	var result []Row
+	var result []util.Row
 	result = append(result, original[0])
 	for i := 1; i < len(original); i++ {
 		if result[len(result)-1].Price == original[i].Price {
@@ -288,7 +280,7 @@ func sortOrderbooks(original []Row, new [][]float64, orderbookType string) *[]Ro
 	return &result
 }
 
-func GetOrderbookRes() map[string]*PairsRow {
+func GetOrderbookRes() map[string]*util.Orderbook {
 	return OrderbookRes
 }
 
@@ -298,9 +290,9 @@ func SubscribeOrderbook(pairs []string) error {
 
 	// initial pairs
 	for _, val := range pairs {
-		OrderbookRes[val] = &PairsRow{
-			BidsRow{},
-			AsksRow{},
+		OrderbookRes[val] = &util.Orderbook{
+			[]util.Row{},
+			[]util.Row{},
 		}
 	}
 
