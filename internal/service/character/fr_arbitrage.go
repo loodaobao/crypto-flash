@@ -184,7 +184,7 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 		if outerSpreadRate <= fra.stopFutureSpotSpreadRate {
 			stopReason = "outerSpreadRate <= fra.stopFutureSpotSpreadRate" // please update string when shouldStop logic change
 		}
-		util.Info(fra.tag, "not profitable: "+future.name, "stop reason: "+stopReason)
+		util.Info(fra.tag, "not profitable: "+future.name, "\n stop reason: "+stopReason)
 		fra.send("not profitable: " + future.name + "\n stop reason: " + stopReason)
 		return shouldStop, shouldStart
 	}
