@@ -180,8 +180,12 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 	shouldStop = future.size != 0 && ((future.size*nextFundingRate > 0 && -nextFundingAPR <= fra.stopAPRThreshold) ||
 		outerSpreadRate <= fra.stopFutureSpotSpreadRate)
 	if shouldStop {
-		util.Info(fra.tag, "not profitable: "+future.name)
-		fra.send("not profitable: " + future.name)
+		stopReason := "future.size * nextFundingRate > 0 && -nextFundingAPR <= fra.stopAPRThreshold"
+		if outerSpreadRate <= fra.stopFutureSpotSpreadRate {
+			stopReason = "outerSpreadRate <= fra.stopFutureSpotSpreadRate" // please update string when shouldStop logic change
+		}
+		util.Info(fra.tag, "not profitable: "+future.name, "stop reason: "+stopReason)
+		fra.send("not profitable: " + future.name + "\n stop reason: " + stopReason)
 		return shouldStop, shouldStart
 	}
 	innerSpreadRate := fra.calculateStartSpreadRate(highOrderbook, lowOrderbook)
