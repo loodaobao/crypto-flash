@@ -228,8 +228,8 @@ func SubscribeOrderbook(pairs []string) error {
 	// initial pairs
 	for _, val := range pairs {
 		OrderbookRes[val] = &util.Orderbook{
-			[]util.Row{},
-			[]util.Row{},
+			Bids: []util.Row{},
+			Asks: []util.Row{},
 		}
 	}
 
