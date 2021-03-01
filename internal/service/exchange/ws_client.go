@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/buger/jsonparser"
@@ -45,10 +44,6 @@ type Response struct {
 	Orderbook Orderbook
 	Results   error
 }
-
-type AsksRow []util.Row
-
-type BidsRow []util.Row
 
 type Orderbook struct {
 	Bids   [][]float64 `json:"bids"`
@@ -199,14 +194,14 @@ func Connect(ctx context.Context, ch chan Response, channel string, symbols []st
 				}
 
 				// Sort of Bids
-				OrderbookRes[res.Symbol].Bids = *sortOrderbooks(
+				OrderbookRes[res.Symbol].Bids = *util.SortOrderbooks(
 					OrderbookRes[res.Symbol].Bids,
 					res.Orderbook.Bids,
 					"bids",
 				)
 
 				// Sort of Asks
-				OrderbookRes[res.Symbol].Asks = *sortOrderbooks(
+				OrderbookRes[res.Symbol].Asks = *util.SortOrderbooks(
 					OrderbookRes[res.Symbol].Asks,
 					res.Orderbook.Asks,
 					"asks",
@@ -220,64 +215,6 @@ func Connect(ctx context.Context, ch chan Response, channel string, symbols []st
 	}()
 
 	return nil
-}
-
-func (e BidsRow) Len() int {
-	return len(e)
-}
-
-func (e AsksRow) Len() int {
-	return len(e)
-}
-
-func (e BidsRow) Less(i, j int) bool {
-	return e[i].Price > e[j].Price
-}
-
-func (e AsksRow) Less(i, j int) bool {
-	return e[i].Price < e[j].Price
-}
-
-func (e BidsRow) Swap(i, j int) {
-	e[i], e[j] = e[j], e[i]
-}
-
-func (e AsksRow) Swap(i, j int) {
-	e[i], e[j] = e[j], e[i]
-}
-
-func sortOrderbooks(original []util.Row, new [][]float64, orderbookType string) *[]util.Row {
-	var convertNewObj []util.Row
-	for _, elem := range new {
-		// Filter size = 0
-		if elem[1] > 0 {
-			orderbookRow := util.Row{elem[0], elem[1]}
-			convertNewObj = append(convertNewObj, orderbookRow)
-		}
-	}
-
-	original = append(original, convertNewObj...)
-	if orderbookType == "bids" {
-		sort.Sort(BidsRow(original))
-	} else if orderbookType == "asks" {
-		sort.Sort(AsksRow(original))
-	}
-
-	var result []util.Row
-	result = append(result, original[0])
-	for i := 1; i < len(original); i++ {
-		if result[len(result)-1].Price == original[i].Price {
-			result[len(result)-1].Size = original[i].Size
-		} else {
-			result = append(result, original[i])
-		}
-	}
-
-	if len(result) > 50 {
-		result = result[:50]
-	}
-
-	return &result
 }
 
 func GetOrderbookRes() map[string]*util.Orderbook {
