@@ -94,22 +94,22 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
 		// consecutive hours of positive/negative funding rate
 		longTime: 1 * 24,
 		// start arbitrage if APR is more then this threshold
-		startAPRThreshold: 3,
+		startAPRThreshold: 2,
 		// stop arbitrage if APR is smaller then this threshold (should <= 0)
 		stopAPRThreshold: 0,
 		// buy sell spread should be smaller than startSpreadRate
 		startBuySellSpreadRate: 0.01,
 		// future spot spread should be larger to start position
 		// start - stop should > fee (0.0007 * 4)
-		startFutureSpotSpreadRate: 0.006,
+		startFutureSpotSpreadRate: 0.003,
 		// future spot spread should be smaller to stop position
-		stopFutureSpotSpreadRate: 0.001,
+		stopFutureSpotSpreadRate: 0,
 		// previous data we used to calculate avgAPR
 		prevRateDays: 7,
 		// minimum USD amount to start a pair (perp + quarter)
 		minAmount: 10,
 		// each time we allocate this rate of balance
-		freeBalanceAllocateRate: 0.25,
+		freeBalanceAllocateRate: 0.33,
 		// data
 		futures:     make(map[string]*future),
 		freeBalance: 10000,
