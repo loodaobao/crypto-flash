@@ -171,7 +171,7 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 		if outerSpreadRate <= fra.stopFutureSpotSpreadRate {
 			stopReason = "outer spread smaller than threshold"
 		}
-		msg := fmt.Sprintf("not profitable: %s\nstop reason: %s\n, nextFundingRate: %f",
+		msg := fmt.Sprintf("not profitable: %s\nstop reason: %s\nnextFundingRate: %f",
 			future.name, stopReason, future.nextFundingRate)
 		util.Info(fra.tag, msg)
 		fra.send(msg)
