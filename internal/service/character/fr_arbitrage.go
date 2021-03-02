@@ -94,7 +94,7 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
 		// consecutive hours of positive/negative funding rate
 		longTime: 1 * 24,
 		// start arbitrage if APR is more then this threshold
-		startAPRThreshold: 2,
+		startAPRThreshold: 3,
 		// stop arbitrage if APR is smaller then this threshold (should <= 0)
 		stopAPRThreshold: 0,
 		// buy sell spread should be smaller than startSpreadRate
@@ -171,7 +171,8 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 		if outerSpreadRate <= fra.stopFutureSpotSpreadRate {
 			stopReason = "outer spread smaller than threshold"
 		}
-		msg := fmt.Sprintf("not profitable: %s \n stop reason: %s\n", future.name, stopReason)
+		msg := fmt.Sprintf("not profitable: %s\nstop reason: %s\nnextFundingRate: %f",
+			future.name, stopReason, future.nextFundingRate)
 		util.Info(fra.tag, msg)
 		fra.send(msg)
 		return shouldStop, shouldStart
@@ -186,8 +187,10 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 		size := allocatedBalance / 2 * fra.leverage
 		fra.startPair(future, size)
 		fra.freeBalance -= allocatedBalance
-		util.Info(fra.tag, "profitable: "+future.name)
-		fra.send("profitable: " + future.name + "\n" + fmt.Sprintf("avgAPR: %.2f%%", future.avgAPR*100))
+		msg := fmt.Sprintf("profitable: %s\navgAPR: %.2f%%\nnextFundingRate: %f",
+			future.name, future.avgAPR*100, future.nextFundingRate)
+		util.Info(fra.tag, msg)
+		fra.send(msg)
 	}
 	return shouldStop, shouldStart
 }
