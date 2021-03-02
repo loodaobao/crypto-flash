@@ -94,7 +94,7 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
 		// consecutive hours of positive/negative funding rate
 		longTime: 1 * 24,
 		// start arbitrage if APR is more then this threshold
-		startAPRThreshold: 3,
+		startAPRThreshold: 2,
 		// stop arbitrage if APR is smaller then this threshold (should <= 0)
 		stopAPRThreshold: 0,
 		// buy sell spread should be smaller than startSpreadRate
@@ -109,7 +109,7 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
 		// minimum USD amount to start a pair (perp + quarter)
 		minAmount: 10,
 		// each time we allocate this rate of balance
-		freeBalanceAllocateRate: 0.25,
+		freeBalanceAllocateRate: 0.33,
 		// data
 		futures:     make(map[string]*future),
 		freeBalance: 10000,
