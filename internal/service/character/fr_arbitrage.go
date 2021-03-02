@@ -101,7 +101,7 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
 		startBuySellSpreadRate: 0.01,
 		// future spot spread should be larger to start position
 		// start - stop should > fee (0.0007 * 4)
-		startFutureSpotSpreadRate: 0.006,
+		startFutureSpotSpreadRate: 0.004,
 		// future spot spread should be smaller to stop position
 		stopFutureSpotSpreadRate: 0.001,
 		// previous data we used to calculate avgAPR
