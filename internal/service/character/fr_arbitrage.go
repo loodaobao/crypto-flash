@@ -246,7 +246,7 @@ func (fra *FRArb) sendFutureStatusReport() {
 			msg += fmt.Sprintf("avgAPR: %.2f%%\n", future.avgAPR*100)
 			msg += fmt.Sprintf("consCount: %d\n", future.consCount)
 			msg += fmt.Sprintf("next funding rate: %f (APR %.2f%%)\n",
-				future.fundingRates[0], fra.fundingRateToAPR(future.fundingRates[0])*100)
+				future.nextFundingRate, fra.fundingRateToAPR(future.nextFundingRate)*100)
 			currentHedgeProfitROI := future.currentHedgeProfit / math.Abs(future.size)
 			msg += fmt.Sprintf("hedgePair: %s\n", future.hedgePair)
 			canPerfectLeverage := future.size >= 0 || future.isCollaterable
@@ -264,7 +264,7 @@ func (fra *FRArb) sendFutureStatusReport() {
 func (fra *FRArb) startPair(future *future, size float64) {
 	perpSide := "long"
 	//quarterSide := "short"
-	if future.fundingRates[0] > 0 {
+	if future.nextFundingRate > 0 {
 		perpSide = "short"
 		//quarterSide = "long"
 		future.size = -size
@@ -444,11 +444,11 @@ func (fra *FRArb) Start() {
 				future.fundingRates = append([]float64{future.nextFundingRate}, future.fundingRates[:end]...)
 				fundingRates := future.fundingRates
 				nextFundingAPR := fra.fundingRateToAPR(future.nextFundingRate)
-				util.Info(fra.tag, future.name, fmt.Sprintf("next funding rate: %f", fundingRates[0]))
+				util.Info(fra.tag, future.name, fmt.Sprintf("next funding rate: %f", future.nextFundingRate))
 				util.Info(fra.tag, future.name, fmt.Sprintf("next equivalent APR: %.2f%%", nextFundingAPR*100))
 				future.consCount = 1
 				for i := 1; i < len(fundingRates); i++ {
-					if fundingRates[i]*fundingRates[0] <= 0 {
+					if fundingRates[i]*future.nextFundingRate <= 0 {
 						break
 					}
 					future.consCount++
@@ -484,7 +484,7 @@ func (fra *FRArb) Start() {
 				future := fra.futures[name]
 				msg := fmt.Sprintf(
 					"future: %s, avgAPR: %.2f%%, nextAPR: %.2f%%, consCount: %d",
-					name, future.avgAPR*100, fra.fundingRateToAPR(future.fundingRates[0])*100, future.consCount)
+					name, future.avgAPR*100, fra.fundingRateToAPR(future.nextFundingRate)*100, future.consCount)
 				util.Info(fra.tag, msg)
 			}
 		}
