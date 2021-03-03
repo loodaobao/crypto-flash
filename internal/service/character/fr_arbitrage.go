@@ -46,7 +46,8 @@ type future struct {
 }
 type FRArb struct {
 	SignalProvider
-	ftx *exchange.FTX
+	ftx        *exchange.FTX
+	orderbooks map[string]*util.Orderbook
 	// strategy config
 	quarterContractName       string
 	updatePeriod              int64
@@ -67,7 +68,7 @@ type FRArb struct {
 	futures     map[string]*future
 }
 
-func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
+func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string, orderbooks map[string]*util.Orderbook) *FRArb {
 	return &FRArb{
 		SignalProvider: SignalProvider{
 			tag:             "FRArbProvider-" + owner,
@@ -81,7 +82,8 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
 			takeProfitCount: 0,
 			stopLossCount:   0,
 		},
-		ftx: ftx,
+		ftx:        ftx,
+		orderbooks: orderbooks,
 		// config
 		quarterContractName: "0326",
 		// period of main loop in minute
@@ -413,6 +415,15 @@ func (fra *FRArb) createFutures() {
 		}
 	}
 }
+func (fra *FRArb) GetRequiredPairs() []string {
+	fra.createFutures()
+	var pairs []string
+	for _, future := range fra.futures {
+		pairs = append(pairs, future.perpPair)
+		pairs = append(pairs, future.spotPair)
+	}
+	return pairs
+}
 func (fra *FRArb) Start() {
 	value, exist := os.LookupEnv("ENV")
 	isTestEnv := exist && value == "test"
@@ -420,6 +431,8 @@ func (fra *FRArb) Start() {
 	startFuturesInThisHour := make(map[string]bool)
 	prev := time.Now().Unix()
 	for {
+		fmt.Println(fra.orderbooks["BTC-PERP"].Asks)
+		fmt.Println(fra.orderbooks["BTC-PERP"].Bids)
 		now := time.Now().Unix()
 		util.Info(fra.tag, fmt.Sprintf("time used: %d second\n", now-prev))
 		prev = now
