@@ -95,13 +95,13 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string) *FRArb {
 		longTime: 1 * 24,
 		// start arbitrage if APR is more then this threshold
 		startAPRThreshold: 2,
-		// stop arbitrage if APR is smaller then this threshold (should <= 0)
-		stopAPRThreshold: 0,
+		// stop arbitrage if APR is smaller then this threshold
+		stopAPRThreshold: 1,
 		// buy sell spread should be smaller than startSpreadRate
 		startBuySellSpreadRate: 0.01,
 		// future spot spread should be larger to start position
 		// start - stop should > fee (0.0007 * 4)
-		startFutureSpotSpreadRate: 0.003,
+		startFutureSpotSpreadRate: 0.004,
 		// future spot spread should be smaller to stop position
 		stopFutureSpotSpreadRate: 0,
 		// previous data we used to calculate avgAPR
@@ -163,8 +163,14 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 	util.Info(fra.tag, fmt.Sprintf("%s outer spread rate: %.4f", future.name, outerSpreadRate))
 	nextFundingAPR := fra.fundingRateToAPR(nextFundingRate)
 	shouldStop, shouldStart := false, false
-	shouldStop = future.size != 0 && ((future.size*nextFundingRate > 0 && -nextFundingAPR <= fra.stopAPRThreshold) ||
-		outerSpreadRate <= fra.stopFutureSpotSpreadRate)
+	curNextFundingAPR := 0.0
+	if future.size*nextFundingRate > 0 {
+		curNextFundingAPR = -nextFundingAPR
+	} else if future.size*nextFundingRate < 0 {
+		curNextFundingAPR = nextFundingAPR
+	}
+	shouldStop = future.size != 0 && curNextFundingAPR < fra.stopAPRThreshold &&
+		outerSpreadRate <= fra.stopFutureSpotSpreadRate
 	if shouldStop {
 		fra.stopPair(future)
 		stopReason := "funding rate not profitable" // please update when shouldStop logic change
