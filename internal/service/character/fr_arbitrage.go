@@ -156,6 +156,11 @@ func (fra *FRArb) calculateOuterSpreadRate(highOrderbook, lowOrderbook *util.Ord
 	lowPrice, _ := lowOrderbook.GetMarketSellPrice()
 	return (highPrice - lowPrice) / lowPrice
 }
+func (fra *FRArb) calculateEnterSpreadRate(future *future) float64 {
+	highPrice := math.Max(future.perpEnterPrice, future.hedgeEnterPrice)
+	lowPrice := math.Min(future.perpEnterPrice, future.hedgeEnterPrice)
+	return (highPrice - lowPrice) / lowPrice
+}
 func (fra *FRArb) genSignal(future *future) (bool, bool) {
 	highPair := future.perpPair
 	lowPair := future.hedgePair
@@ -192,6 +197,7 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 	innerSpreadRate := fra.calculateInnerSpreadRate(highOrderbook, lowOrderbook)
 	util.Info(fra.tag, fmt.Sprintf("%s inner spread rate %.4f\n", future.name, innerSpreadRate))
 	canPerfectLeverage := nextFundingRate < 0 || future.isCollaterable
+	// TODO: change this to shouldIncreaseSize and use increasePairSize
 	shouldStart = future.size == 0 && nextFundingAPR >= fra.startAPRThreshold &&
 		innerSpreadRate >= fra.startFutureSpotSpreadRate && canPerfectLeverage
 	if shouldStart {
@@ -310,6 +316,50 @@ func (fra *FRArb) startPair(future *future, size float64) {
 	future.totalProfit -= math.Abs(future.size) * fra.ftx.Fee * 2
 	util.Info(fra.tag, fmt.Sprintf("start earning on %s, size %f", future.name, future.size))
 	fra.send(fmt.Sprintf("start earning on %s, size %f", future.name, future.size))
+}
+func (fra *FRArb) increasePairSize(future *future, size float64) {
+	originalSize := math.Abs(future.size)
+	perpSide := "long"
+	//quarterSide := "short"
+	if future.nextFundingRate > 0 {
+		perpSide = "short"
+		//quarterSide = "long"
+		future.size += -size
+	} else {
+		future.size += size
+	}
+	/*
+		// TODO: set stop loss
+		fra.sendSignal(&util.Signal{
+			Market: future.perpPairName,
+			Side: perpSide,
+			Reason: "Profitable",
+			Ratio: ratio,
+		})
+		fra.sendSignal(&util.Signal{
+			Market: future.quarterPairName,
+			Side: quarterSide,
+			Reason: "Profitable",
+			Ratio: ratio,
+		})
+	*/
+	perpOrderbook := fra.getOrderbook(future.perpPair)
+	hedgeOrderbook := fra.getOrderbook(future.hedgePair)
+	var curPerpPrice, curHedgePrice float64
+	if perpSide == "long" {
+		curPerpPrice, _ = perpOrderbook.GetMarketBuyPrice()
+		curHedgePrice, _ = hedgeOrderbook.GetMarketSellPrice()
+	} else {
+		curPerpPrice, _ = perpOrderbook.GetMarketSellPrice()
+		curHedgePrice, _ = hedgeOrderbook.GetMarketBuyPrice()
+	}
+	util.Info(fra.tag, fmt.Sprintf("add on %s, size %f", future.name, future.size))
+	fra.send(fmt.Sprintf("add on %s, size %f", future.name, future.size))
+	fra.send(fmt.Sprintf("original enter spread %f", fra.calculateEnterSpreadRate(future)))
+	future.perpEnterPrice = (originalSize*future.perpEnterPrice + size*curPerpPrice) / math.Abs(future.size)
+	future.hedgeEnterPrice = (originalSize*future.hedgeEnterPrice + size*curHedgePrice) / math.Abs(future.size)
+	fra.send(fmt.Sprintf("new enter spread %f", fra.calculateEnterSpreadRate(future)))
+	future.totalProfit -= math.Abs(size) * fra.ftx.Fee * 2
 }
 func (fra *FRArb) calculateHedgeProfit(future *future) (float64, error) {
 	perpOrderbook := fra.getOrderbook(future.perpPair)
