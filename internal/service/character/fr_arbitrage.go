@@ -157,6 +157,9 @@ func (fra *FRArb) calculateOuterSpreadRate(highOrderbook, lowOrderbook *util.Ord
 	return (highPrice - lowPrice) / lowPrice
 }
 func (fra *FRArb) calculateEnterSpreadRate(future *future) float64 {
+	if future.size == 0 {
+		return 0.0
+	}
 	highPrice := math.Max(future.perpEnterPrice, future.hedgeEnterPrice)
 	lowPrice := math.Min(future.perpEnterPrice, future.hedgeEnterPrice)
 	return (highPrice - lowPrice) / lowPrice
@@ -353,8 +356,8 @@ func (fra *FRArb) increasePairSize(future *future, size float64) {
 		curPerpPrice, _ = perpOrderbook.GetMarketSellPrice()
 		curHedgePrice, _ = hedgeOrderbook.GetMarketBuyPrice()
 	}
-	util.Info(fra.tag, fmt.Sprintf("add on %s, size %f", future.name, future.size))
-	fra.send(fmt.Sprintf("add on %s, size %f", future.name, future.size))
+	util.Info(fra.tag, fmt.Sprintf("add size %f on %s", size, future.name))
+	fra.send(fmt.Sprintf("add size %f on %s", size, future.name))
 	fra.send(fmt.Sprintf("original enter spread %f", fra.calculateEnterSpreadRate(future)))
 	future.perpEnterPrice = (originalSize*future.perpEnterPrice + size*curPerpPrice) / math.Abs(future.size)
 	future.hedgeEnterPrice = (originalSize*future.hedgeEnterPrice + size*curHedgePrice) / math.Abs(future.size)
