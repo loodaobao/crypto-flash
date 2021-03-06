@@ -30,6 +30,14 @@ $ zsh < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/bin
 $ gvm install go1.15
 $ gvm use go1.15
 ```
+**if you are using MacOS Big Sur**
+```sh
+$ brew install go
+$ gvm install go1.15
+$ gvm use go1.15
+$ brew uninstall go
+```
+[reference](https://github.com/moovweb/gvm/issues/360)
 
 3. Download related pacakges
 
