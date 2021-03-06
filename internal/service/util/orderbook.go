@@ -2,7 +2,6 @@ package util
 
 import (
 	"errors"
-	"sort"
 )
 
 type Row struct {
@@ -63,7 +62,7 @@ func (e AsksRow) Swap(i, j int) {
 	e[i], e[j] = e[j], e[i]
 }
 
-func SortOrderbooks(original []Row, new [][]float64, orderbookType string) *[]Row {
+func Merge(original []Row, new [][]float64, orderbookType string) *[]Row {
 	var convertNewObj []Row
 	for _, elem := range new {
 		// Filter size = 0
@@ -74,11 +73,11 @@ func SortOrderbooks(original []Row, new [][]float64, orderbookType string) *[]Ro
 	}
 
 	original = append(original, convertNewObj...)
-	if orderbookType == "bids" {
-		sort.Sort(BidsRow(original))
-	} else if orderbookType == "asks" {
-		sort.Sort(AsksRow(original))
-	}
+	// if orderbookType == "bids" {
+	// 	sort.Sort(BidsRow(original))
+	// } else if orderbookType == "asks" {
+	// 	sort.Sort(AsksRow(original))
+	// }
 
 	var result []Row
 	result = append(result, original[0])
