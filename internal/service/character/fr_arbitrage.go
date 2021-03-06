@@ -134,8 +134,12 @@ func (fra *FRArb) Backtest(startTime, endTime int64) float64 {
 		return roi*/
 	return 0
 }
+func (fra *FRArb) getOrderbook(marketPair string) *util.Orderbook {
+	return fra.ftx.GetOrderbook(marketPair, 1)
+	//return fra.orderbooks[marketPair]
+}
 func (fra *FRArb) calculateSpreadRate(marketPair string) float64 {
-	ob := fra.ftx.GetOrderbook(marketPair, 1)
+	ob := fra.getOrderbook(marketPair)
 	sellPrice, _ := ob.GetMarketSellPrice()
 	buyPrice, _ := ob.GetMarketBuyPrice()
 	return (sellPrice - buyPrice) / buyPrice
@@ -159,8 +163,8 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 	if nextFundingRate < 0 {
 		highPair, lowPair = lowPair, highPair
 	}
-	highOrderbook := fra.ftx.GetOrderbook(highPair, 1)
-	lowOrderbook := fra.ftx.GetOrderbook(lowPair, 1)
+	highOrderbook := fra.getOrderbook(highPair)
+	lowOrderbook := fra.getOrderbook(lowPair)
 	outerSpreadRate := fra.calculateOuterSpreadRate(highOrderbook, lowOrderbook)
 	util.Info(fra.tag, fmt.Sprintf("%s outer spread rate: %.4f", future.name, outerSpreadRate))
 	nextFundingAPR := fra.fundingRateToAPR(nextFundingRate)
@@ -294,8 +298,8 @@ func (fra *FRArb) startPair(future *future, size float64) {
 			Ratio: ratio,
 		})
 	*/
-	perpOrderbook := fra.ftx.GetOrderbook(future.perpPair, 1)
-	hedgeOrderbook := fra.ftx.GetOrderbook(future.hedgePair, 1)
+	perpOrderbook := fra.getOrderbook(future.perpPair)
+	hedgeOrderbook := fra.getOrderbook(future.hedgePair)
 	if perpSide == "long" {
 		future.perpEnterPrice, _ = perpOrderbook.GetMarketBuyPrice()
 		future.hedgeEnterPrice, _ = hedgeOrderbook.GetMarketSellPrice()
@@ -308,8 +312,8 @@ func (fra *FRArb) startPair(future *future, size float64) {
 	fra.send(fmt.Sprintf("start earning on %s, size %f", future.name, future.size))
 }
 func (fra *FRArb) calculateHedgeProfit(future *future) (float64, error) {
-	perpOrderbook := fra.ftx.GetOrderbook(future.perpPair, 1)
-	hedgeOrderbook := fra.ftx.GetOrderbook(future.hedgePair, 1)
+	perpOrderbook := fra.getOrderbook(future.perpPair)
+	hedgeOrderbook := fra.getOrderbook(future.hedgePair)
 	var perpPrice, hedgePrice, perpProfit, hedgePairProfit float64
 	if future.size > 0 {
 		perpPrice, _ = perpOrderbook.GetMarketSellPrice()
@@ -422,6 +426,7 @@ func (fra *FRArb) GetRequiredPairs() []string {
 		pairs = append(pairs, future.perpPair)
 		pairs = append(pairs, future.spotPair)
 	}
+	//return []string{"BTC-PERP"}
 	return pairs
 }
 func (fra *FRArb) Start() {
