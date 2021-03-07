@@ -206,8 +206,8 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 			if outerSpreadRate <= fra.stopFutureSpotSpreadRate {
 				stopReason = "outer spread smaller than threshold"
 			}
-			msg := fmt.Sprintf("not profitable: %s\nstop reason: %s\nnextFundingRate: %f",
-				future.name, stopReason, future.nextFundingRate)
+			msg := fmt.Sprintf("not profitable: %s\nstop reason: %s\nnextAPR: %.2f%%",
+				future.name, stopReason, nextFundingAPR*100)
 			util.Info(fra.tag, msg)
 			fra.send(msg)
 			return shouldStop, shouldStart
@@ -217,16 +217,16 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 	if err == nil {
 		//util.Info(fra.tag, fmt.Sprintf("%s inner spread rate %.4f\n", future.name, innerSpreadRate))
 		canPerfectLeverage := nextFundingRate < 0 || future.isCollaterable
-		// TODO: change this to shouldIncreaseSize and use increasePairSize
+		// TODO: shouldIncreaseSize
 		shouldStart = future.size == 0 && nextFundingAPR >= fra.startAPRThreshold &&
 			innerSpreadRate >= fra.startFutureSpotSpreadRate && canPerfectLeverage
 		if shouldStart {
 			allocatedBalance := fra.freeBalance * fra.freeBalanceAllocateRate
 			size := allocatedBalance / 2 * fra.leverage
-			fra.startPair(future, size)
+			fra.increasePairSize(future, size)
 			fra.freeBalance -= allocatedBalance
-			msg := fmt.Sprintf("profitable: %s\navgAPR: %.2f%%\nnextFundingRate: %f",
-				future.name, future.avgAPR*100, future.nextFundingRate)
+			msg := fmt.Sprintf("profitable: %s\navgAPR: %.2f%%\nnextAPR: %.2f%%",
+				future.name, future.avgAPR*100, nextFundingAPR*100)
 			util.Info(fra.tag, msg)
 			fra.send(msg)
 		}
@@ -376,10 +376,15 @@ func (fra *FRArb) increasePairSize(future *future, size float64) {
 	}
 	util.Info(fra.tag, fmt.Sprintf("add size %f on %s", size, future.name))
 	fra.send(fmt.Sprintf("add size %f on %s", size, future.name))
-	fra.send(fmt.Sprintf("original enter spread %f", fra.calculateEnterSpreadRate(future)))
+	msg := fmt.Sprintf("opPrice %f, ohPrice %f, cpPrice %f, chPrice %f\n",
+		future.perpEnterPrice, future.hedgeEnterPrice, curPerpPrice, curHedgePrice)
+	msg += fmt.Sprintf("original size: %f, original enter spread %f\n",
+		originalSize, fra.calculateEnterSpreadRate(future))
 	future.perpEnterPrice = (originalSize*future.perpEnterPrice + size*curPerpPrice) / math.Abs(future.size)
 	future.hedgeEnterPrice = (originalSize*future.hedgeEnterPrice + size*curHedgePrice) / math.Abs(future.size)
-	fra.send(fmt.Sprintf("new enter spread %f", fra.calculateEnterSpreadRate(future)))
+	msg += fmt.Sprintf("npPrice %f, nhPrice %f\n", future.perpEnterPrice, future.hedgeEnterPrice)
+	msg += fmt.Sprintf("new size: %f, new enter spread %f", future.size, fra.calculateEnterSpreadRate(future))
+	fra.send(msg)
 	future.totalProfit -= math.Abs(size) * fra.ftx.Fee * 2
 }
 func (fra *FRArb) calculateHedgeProfit(future *future) (float64, error) {
@@ -501,7 +506,7 @@ func (fra *FRArb) GetRequiredPairs() []string {
 }
 func (fra *FRArb) updateFundingRateProfit() {
 	// runs at 30 sec before each hour
-	beforeHourPeriod := 13 * 60
+	beforeHourPeriod := 30
 	for {
 		now := time.Now().Unix() % 3600
 		targetTime := int64(3600 - beforeHourPeriod)
@@ -569,8 +574,8 @@ func (fra *FRArb) updateFundingRateProfit() {
 	}
 }
 func (fra *FRArb) updateNextFundingRates() {
-	// runs every 20 sec
-	updatePeriod := int64(20)
+	// runs every 30 sec
+	updatePeriod := int64(30)
 	for {
 		sleepDuration := util.Duration{Second: updatePeriod}
 		time.Sleep(sleepDuration.GetTimeDuration())
