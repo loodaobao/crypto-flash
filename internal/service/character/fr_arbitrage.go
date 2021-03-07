@@ -219,7 +219,6 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 	if err == nil {
 		//util.Info(fra.tag, fmt.Sprintf("%s inner spread rate %.4f\n", future.name, innerSpreadRate))
 		canPerfectLeverage := nextFundingRate < 0 || future.isCollaterable
-		// TODO: shouldIncreaseSize
 		shouldStart = future.size == 0 && nextFundingAPR >= fra.startAPRThreshold &&
 			innerSpreadRate >= fra.startFutureSpotSpreadRate && canPerfectLeverage
 		enterSpreadRate := fra.calculateEnterSpreadRate(future)
