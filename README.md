@@ -52,6 +52,12 @@ $ go mod download
 $ go run main.go
 ```
 
+### How to run the unit test of all test files?
+
+```sh
+$ go test -v ./...
+```
+
 ### How to hot reload server in development?
 
 * Reference:

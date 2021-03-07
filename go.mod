@@ -18,6 +18,7 @@ require (
 	github.com/line/line-bot-sdk-go v7.7.0+incompatible
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/shopspring/decimal v1.2.0
+	github.com/stretchr/testify v1.7.0
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
 	github.com/wcharczuk/go-chart v2.0.1+incompatible
 	golang.org/x/image v0.0.0-20201208152932-35266b937fa6 // indirect

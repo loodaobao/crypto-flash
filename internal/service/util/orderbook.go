@@ -2,7 +2,6 @@ package util
 
 import (
 	"errors"
-	"sort"
 )
 
 type Row struct {
@@ -13,10 +12,6 @@ type Orderbook struct {
 	Bids []Row
 	Asks []Row
 }
-
-type AsksRow []Row
-
-type BidsRow []Row
 
 func (ob *Orderbook) Add(side string, price, size float64) {
 	row := Row{Price: price, Size: size}
@@ -39,55 +34,65 @@ func (ob *Orderbook) GetMarketSellPrice() (float64, error) {
 	return ob.Bids[0].Price, nil
 }
 
-func (e BidsRow) Len() int {
-	return len(e)
-}
-
-func (e AsksRow) Len() int {
-	return len(e)
-}
-
-func (e BidsRow) Less(i, j int) bool {
-	return e[i].Price > e[j].Price
-}
-
-func (e AsksRow) Less(i, j int) bool {
-	return e[i].Price < e[j].Price
-}
-
-func (e BidsRow) Swap(i, j int) {
-	e[i], e[j] = e[j], e[i]
-}
-
-func (e AsksRow) Swap(i, j int) {
-	e[i], e[j] = e[j], e[i]
-}
-
-func SortOrderbooks(original []Row, new [][]float64, orderbookType string) *[]Row {
+func MergeOrderbook(original []Row, new [][]float64, orderbookType string) *[]Row {
 	var convertNewObj []Row
 	for _, elem := range new {
-		// Filter size = 0
-		if elem[1] > 0 {
-			orderbookRow := Row{elem[0], elem[1]}
-			convertNewObj = append(convertNewObj, orderbookRow)
-		}
-	}
-
-	original = append(original, convertNewObj...)
-	if orderbookType == "bids" {
-		sort.Sort(BidsRow(original))
-	} else if orderbookType == "asks" {
-		sort.Sort(AsksRow(original))
+		orderbookRow := Row{elem[0], elem[1]}
+		convertNewObj = append(convertNewObj, orderbookRow)
 	}
 
 	var result []Row
-	result = append(result, original[0])
-	for i := 1; i < len(original); i++ {
-		if result[len(result)-1].Price == original[i].Price {
-			result[len(result)-1].Size = original[i].Size
-		} else {
-			result = append(result, original[i])
+	originalStartIndex, newStartIndex := 0, 0
+	originalLen, newLen := len(original), len(convertNewObj)
+
+	if orderbookType == "bids" {
+		for originalStartIndex < originalLen && newStartIndex < newLen {
+			if original[originalStartIndex].Price == convertNewObj[newStartIndex].Price {
+				if convertNewObj[newStartIndex].Size != 0 {
+					result = append(result, convertNewObj[newStartIndex])
+				}
+				originalStartIndex++
+				newStartIndex++
+			} else if original[originalStartIndex].Price > convertNewObj[newStartIndex].Price {
+				result = append(result, original[originalStartIndex])
+				originalStartIndex++
+			} else {
+				if convertNewObj[newStartIndex].Size != 0 {
+					result = append(result, convertNewObj[newStartIndex])
+				}
+				newStartIndex++
+			}
 		}
+	} else if orderbookType == "asks" {
+		for originalStartIndex < originalLen && newStartIndex < newLen {
+			if original[originalStartIndex].Price == convertNewObj[newStartIndex].Price {
+				if convertNewObj[newStartIndex].Size != 0 {
+					result = append(result, convertNewObj[newStartIndex])
+				}
+				originalStartIndex++
+				newStartIndex++
+			} else if original[originalStartIndex].Price > convertNewObj[newStartIndex].Price {
+				if convertNewObj[newStartIndex].Size != 0 {
+					result = append(result, convertNewObj[newStartIndex])
+				}
+				newStartIndex++
+			} else {
+				result = append(result, original[originalStartIndex])
+				originalStartIndex++
+			}
+		}
+	}
+
+	for originalStartIndex < originalLen {
+		result = append(result, original[originalStartIndex])
+		originalStartIndex++
+	}
+
+	for newStartIndex < newLen {
+		if convertNewObj[newStartIndex].Size != 0 {
+			result = append(result, convertNewObj[newStartIndex])
+		}
+		newStartIndex++
 	}
 
 	if len(result) > 50 {
