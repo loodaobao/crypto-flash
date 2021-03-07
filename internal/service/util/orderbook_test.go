@@ -72,9 +72,12 @@ func (suite *BidsTestSuite) TestWithZeroCase() {
 	new := [][]float64{
 		{49017, 0.3671},
 		{49008, 0.007},
+		{49006, 0}, // original has 48955 price
 		{48988, 0.848},
-		{48984, 0},
+		{48984, 0}, // original does not have 48955 price
 		{48967, 36.2488},
+		{48955, 0}, // original does not have 48955 price
+		{48964, 0}, // original does not have 48955 price
 	}
 
 	expectation := []Row{
@@ -83,7 +86,6 @@ func (suite *BidsTestSuite) TestWithZeroCase() {
 		{49014, 18.35},
 		{49008, 0.007},
 		{49007, 0.139},
-		{49006, 0.307},
 		{48988, 0.848},
 		{48967, 36.2488},
 	}
@@ -145,9 +147,11 @@ func (suite *AsksTestSuite) TestWithZeroCase() {
 	new := [][]float64{
 		{49018, 1.8},
 		{49036, 0.15},
-		{49040, 0},
+		{49040, 0}, // original has 49040 price
 		{49041, 0.6189},
 		{49081, 0.001},
+		{49090, 0}, // original does not have 49090 price
+		{48991, 0}, // original does not have 48991 price
 	}
 
 	expectation := []Row{
@@ -156,7 +160,6 @@ func (suite *AsksTestSuite) TestWithZeroCase() {
 		{49036, 0.15},
 		{49037, 1.0918},
 		{49038, 2.0355},
-		{49040, 0.6653},
 		{49041, 0.6189},
 		{49042, 36.2009},
 		{49043, 0.8139},

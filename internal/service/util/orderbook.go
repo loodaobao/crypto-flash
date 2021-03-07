@@ -37,11 +37,8 @@ func (ob *Orderbook) GetMarketSellPrice() (float64, error) {
 func MergeOrderbook(original []Row, new [][]float64, orderbookType string) *[]Row {
 	var convertNewObj []Row
 	for _, elem := range new {
-		// Filter size = 0
-		if elem[1] > 0 {
-			orderbookRow := Row{elem[0], elem[1]}
-			convertNewObj = append(convertNewObj, orderbookRow)
-		}
+		orderbookRow := Row{elem[0], elem[1]}
+		convertNewObj = append(convertNewObj, orderbookRow)
 	}
 
 	var result []Row
@@ -51,25 +48,33 @@ func MergeOrderbook(original []Row, new [][]float64, orderbookType string) *[]Ro
 	if orderbookType == "bids" {
 		for originalStartIndex < originalLen && newStartIndex < newLen {
 			if original[originalStartIndex].Price == convertNewObj[newStartIndex].Price {
-				result = append(result, convertNewObj[newStartIndex])
+				if convertNewObj[newStartIndex].Size != 0 {
+					result = append(result, convertNewObj[newStartIndex])
+				}
 				originalStartIndex++
 				newStartIndex++
 			} else if original[originalStartIndex].Price > convertNewObj[newStartIndex].Price {
 				result = append(result, original[originalStartIndex])
 				originalStartIndex++
 			} else {
-				result = append(result, convertNewObj[newStartIndex])
+				if convertNewObj[newStartIndex].Size != 0 {
+					result = append(result, convertNewObj[newStartIndex])
+				}
 				newStartIndex++
 			}
 		}
 	} else if orderbookType == "asks" {
 		for originalStartIndex < originalLen && newStartIndex < newLen {
 			if original[originalStartIndex].Price == convertNewObj[newStartIndex].Price {
-				result = append(result, convertNewObj[newStartIndex])
+				if convertNewObj[newStartIndex].Size != 0 {
+					result = append(result, convertNewObj[newStartIndex])
+				}
 				originalStartIndex++
 				newStartIndex++
 			} else if original[originalStartIndex].Price > convertNewObj[newStartIndex].Price {
-				result = append(result, convertNewObj[newStartIndex])
+				if convertNewObj[newStartIndex].Size != 0 {
+					result = append(result, convertNewObj[newStartIndex])
+				}
 				newStartIndex++
 			} else {
 				result = append(result, original[originalStartIndex])
@@ -84,7 +89,9 @@ func MergeOrderbook(original []Row, new [][]float64, orderbookType string) *[]Ro
 	}
 
 	for newStartIndex < newLen {
-		result = append(result, convertNewObj[newStartIndex])
+		if convertNewObj[newStartIndex].Size != 0 {
+			result = append(result, convertNewObj[newStartIndex])
+		}
 		newStartIndex++
 	}
 
