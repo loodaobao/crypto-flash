@@ -35,7 +35,6 @@ const (
 func init() {
 	_ = godotenv.Load()
 }
-
 func main() {
 	config := config.Load("config.json", tag)
 	value, exist := os.LookupEnv("ENV")
@@ -54,7 +53,11 @@ func main() {
 		n = nil
 	}
 	// create bots
-	// TODO: some resource like orderbook should be shared between FTX instance
+	// TODO: some resource like orderbooks should be shared between FTX instance
+	ftx := exchange.NewFTX("", "", "")
+	fra := character.NewFRArb(ftx, nil, "", nil)
+	exchange.SubscribeOrderbook(fra.GetRequiredPairs())
+	orderbooks := exchange.GetOrderbookRes()
 	for _, bot := range config.Bots {
 		if bot.Mode == "backtest" {
 			ftx := exchange.NewFTX("", "", "")
@@ -79,7 +82,7 @@ func main() {
 				ftx = exchange.NewFTX(bot.Key, bot.Secret, bot.SubAccount)
 			}
 			// TODO: different strategy run different bot
-			fra := character.NewFRArb(ftx, n, bot.Owner)
+			fra := character.NewFRArb(ftx, n, bot.Owner, orderbooks)
 			wg.Add(1)
 			go fra.Start()
 		}

@@ -23,7 +23,7 @@ func (ob *Orderbook) Add(side string, price, size float64) {
 }
 func (ob *Orderbook) GetMarketBuyPrice() (float64, error) {
 	if len(ob.Asks) < 1 {
-		return 0, errors.New("No available ask orderbook")
+		return -1, errors.New("No available ask orderbook")
 	}
 	return ob.Asks[0].Price, nil
 }
