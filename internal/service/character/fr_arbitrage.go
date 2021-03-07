@@ -56,6 +56,7 @@ type FRArb struct {
 	startBuySellSpreadRate    float64
 	startFutureSpotSpreadRate float64
 	stopFutureSpotSpreadRate  float64
+	increaseSizeThreshold     float64
 	prevRateDays              int64
 	minAmount                 float64
 	freeBalanceAllocateRate   float64
@@ -96,15 +97,17 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string, orderbooks ma
 		startBuySellSpreadRate: 0.01,
 		// future spot spread should be larger to start position
 		// start - stop should > fee (0.0007 * 4)
-		startFutureSpotSpreadRate: 0.004,
+		startFutureSpotSpreadRate: 0.003,
 		// future spot spread should be smaller to stop position
 		stopFutureSpotSpreadRate: 0,
+		// increase size if inner spread is getting larger
+		increaseSizeThreshold: 0.0005,
 		// previous data we used to calculate avgAPR
 		prevRateDays: 7,
 		// minimum USD amount to start a pair (perp + quarter)
 		minAmount: 10,
 		// each time we allocate this rate of balance
-		freeBalanceAllocateRate: 0.33,
+		freeBalanceAllocateRate: 0.2,
 		// data
 		futures:     make(map[string]*future),
 		freeBalance: 10000,
@@ -219,7 +222,10 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 		// TODO: shouldIncreaseSize
 		shouldStart = future.size == 0 && nextFundingAPR >= fra.startAPRThreshold &&
 			innerSpreadRate >= fra.startFutureSpotSpreadRate && canPerfectLeverage
-		if shouldStart {
+		enterSpreadRate := fra.calculateEnterSpreadRate(future)
+		shouldIncrease := future.size != 0 && nextFundingAPR >= fra.startAPRThreshold &&
+			innerSpreadRate-enterSpreadRate >= fra.increaseSizeThreshold && canPerfectLeverage
+		if shouldStart || shouldIncrease {
 			allocatedBalance := fra.freeBalance * fra.freeBalanceAllocateRate
 			size := allocatedBalance / 2 * fra.leverage
 			fra.increasePairSize(future, size)
@@ -373,8 +379,8 @@ func (fra *FRArb) increasePairSize(future *future, size float64) {
 		curPerpPrice, _ = perpOrderbook.GetMarketSellPrice()
 		curHedgePrice, _ = hedgeOrderbook.GetMarketBuyPrice()
 	}
-	util.Info(fra.tag, fmt.Sprintf("add size %f on %s", size, future.name))
-	fra.send(fmt.Sprintf("add size %f on %s", size, future.name))
+	util.Info(fra.tag, fmt.Sprintf("increase size %f on %s", size, future.name))
+	fra.send(fmt.Sprintf("increase size %f on %s", size, future.name))
 	msg := fmt.Sprintf("opPrice %f, ohPrice %f, cpPrice %f, chPrice %f\n",
 		future.perpEnterPrice, future.hedgeEnterPrice, curPerpPrice, curHedgePrice)
 	msg += fmt.Sprintf("original size: %f, original enter spread %f\n",
