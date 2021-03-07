@@ -133,8 +133,8 @@ func (n *Notifier) tgSend(to, message string) {
 	n.tgClient.Send(msg)
 }
 func (n *Notifier) Broadcast(from, message string) {
-	go n.tgBroadcast(fmt.Sprintf("[%s] %s", from, message))
+	n.tgBroadcast(fmt.Sprintf("[%s] %s", from, message))
 }
 func (n *Notifier) Send(from, to, message string) {
-	go n.tgSend(to, fmt.Sprintf("[%s] %s", from, message))
+	n.tgSend(to, fmt.Sprintf("[%s] %s", from, message))
 }
