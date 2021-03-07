@@ -81,10 +81,15 @@ func main() {
 			if bot.Mode == "trade" {
 				ftx = exchange.NewFTX(bot.Key, bot.Secret, bot.SubAccount)
 			}
-			// TODO: different strategy run different bot
-			fra := character.NewFRArb(ftx, n, bot.Owner, orderbooks)
+			// TODO: make a strategy interface so we can select strategy by config
+			if bot.Strategy == "fr_arbitrage" {
+				fra := character.NewFRArb(ftx, n, bot.Owner, orderbooks)
+				go fra.Start()
+			} else if bot.Strategy == "fr_arbitrage_fork" {
+				fra := character.NewFRArbFork(ftx, n, bot.Owner, orderbooks)
+				go fra.Start()
+			}
 			wg.Add(1)
-			go fra.Start()
 		}
 	}
 	wg.Wait()

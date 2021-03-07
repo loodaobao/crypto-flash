@@ -1,7 +1,6 @@
 /*
 // Funding Rate Arbitrage is a signal provider utilizes funding rate on
 // perpetual contract to earn profit.
-// TODO: all
 */
 package character
 
@@ -69,7 +68,7 @@ type FRArb struct {
 func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string, orderbooks map[string]*util.Orderbook) *FRArb {
 	return &FRArb{
 		SignalProvider: SignalProvider{
-			tag:             "FRArbProvider-" + owner,
+			tag:             "FRArb-" + owner,
 			owner:           owner,
 			startTime:       time.Now(),
 			position:        nil,
