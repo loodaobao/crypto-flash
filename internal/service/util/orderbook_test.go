@@ -1,32 +1,48 @@
 package util
 
 import (
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"reflect"
 	"testing"
 )
 
-var originalForBids = []Row{
-	{49017, 0.3089},
-	{49016, 0.3831},
-	{49014, 18.35},
-	{49008, 0.0547},
-	{49007, 0.139},
-	{49006, 0.307},
+type BidsTestSuite struct {
+	suite.Suite
+	original []Row
 }
 
-var originalForAsks = []Row{
-	{49018, 1.3912},
-	{49034, 0.2137},
-	{49036, 0.1836},
-	{49037, 1.0918},
-	{49038, 2.0355},
-	{49040, 0.6653},
-	{49041, 0.82},
-	{49042, 36.2009},
-	{49043, 0.8139},
+type AsksTestSuite struct {
+	suite.Suite
+	original []Row
 }
 
-func TestMergeWhenBids(t *testing.T) {
+func (suite *BidsTestSuite) SetupTest() {
+	suite.original = []Row{
+		{49017, 0.3089},
+		{49016, 0.3831},
+		{49014, 18.35},
+		{49008, 0.0547},
+		{49007, 0.139},
+		{49006, 0.307},
+	}
+}
+
+func (suite *AsksTestSuite) SetupTest() {
+	suite.original = []Row{
+		{49018, 1.3912},
+		{49034, 0.2137},
+		{49036, 0.1836},
+		{49037, 1.0918},
+		{49038, 2.0355},
+		{49040, 0.6653},
+		{49041, 0.82},
+		{49042, 36.2009},
+		{49043, 0.8139},
+	}
+}
+
+func (suite *BidsTestSuite) TestWithNormalCase() {
 	new := [][]float64{
 		{49017, 0.3671},
 		{49008, 0.007},
@@ -47,14 +63,12 @@ func TestMergeWhenBids(t *testing.T) {
 		{48967, 36.2488},
 	}
 
-	t.Run("it should be successfully merged", func(t *testing.T) {
-		if got := *Merge(originalForBids, new, "bids"); !reflect.DeepEqual(got, expectation) {
-			t.Errorf("Merge() = %v, want %v", got, expectation)
-		}
-	})
+	got := *Merge(suite.original, new, "bids")
+	result := reflect.DeepEqual(got, expectation)
+	assert.Equal(suite.T(), result, true)
 }
 
-func TestMergeWhenBids_WithZeroCase(t *testing.T) {
+func (suite *BidsTestSuite) TestWithZeroCase() {
 	new := [][]float64{
 		{49017, 0.3671},
 		{49008, 0.007},
@@ -74,14 +88,12 @@ func TestMergeWhenBids_WithZeroCase(t *testing.T) {
 		{48967, 36.2488},
 	}
 
-	t.Run("it should be successfully merged", func(t *testing.T) {
-		if got := *Merge(originalForBids, new, "bids"); !reflect.DeepEqual(got, expectation) {
-			t.Errorf("Merge() = %v, want %v", got, expectation)
-		}
-	})
+	got := *Merge(suite.original, new, "bids")
+	result := reflect.DeepEqual(got, expectation)
+	assert.Equal(suite.T(), result, true)
 }
 
-func TestMergeWhenBids_WithoutSamePrice(t *testing.T) {
+func (suite *BidsTestSuite) TestWithoutSamePrice() {
 	new := [][]float64{
 		{49002, 0.82},
 		{49000, 0.24},
@@ -98,14 +110,16 @@ func TestMergeWhenBids_WithoutSamePrice(t *testing.T) {
 		{49000, 0.24},
 	}
 
-	t.Run("it should be successfully merged", func(t *testing.T) {
-		if got := *Merge(originalForBids, new, "bids"); !reflect.DeepEqual(got, expectation) {
-			t.Errorf("Merge() = %v, want %v", got, expectation)
-		}
-	})
+	got := *Merge(suite.original, new, "bids")
+	result := reflect.DeepEqual(got, expectation)
+	assert.Equal(suite.T(), result, true)
 }
 
-func TestMergeWhenAsks(t *testing.T) {
+func TestMergeWhenBidsTestSuite(t *testing.T) {
+	suite.Run(t, new(BidsTestSuite))
+}
+
+func (suite *AsksTestSuite) TestWithNormalCase() {
 	new := [][]float64{
 		{49018, 1.8},
 		{49036, 0.15},
@@ -126,14 +140,12 @@ func TestMergeWhenAsks(t *testing.T) {
 		{49081, 0.001},
 	}
 
-	t.Run("it should be successfully merged", func(t *testing.T) {
-		if got := *Merge(originalForAsks, new, "asks"); !reflect.DeepEqual(got, expectation) {
-			t.Errorf("Merge() = %v, want %v", got, expectation)
-		}
-	})
+	got := *Merge(suite.original, new, "asks")
+	result := reflect.DeepEqual(got, expectation)
+	assert.Equal(suite.T(), result, true)
 }
 
-func TestMergeWhenAsks_WithZeroCase(t *testing.T) {
+func (suite *AsksTestSuite) TestWithZeroCase() {
 	new := [][]float64{
 		{49018, 1.8},
 		{49036, 0.15},
@@ -155,14 +167,12 @@ func TestMergeWhenAsks_WithZeroCase(t *testing.T) {
 		{49081, 0.001},
 	}
 
-	t.Run("it should be successfully merged", func(t *testing.T) {
-		if got := *Merge(originalForAsks, new, "asks"); !reflect.DeepEqual(got, expectation) {
-			t.Errorf("Merge() = %v, want %v", got, expectation)
-		}
-	})
+	got := *Merge(suite.original, new, "asks")
+	result := reflect.DeepEqual(got, expectation)
+	assert.Equal(suite.T(), result, true)
 }
 
-func TestMergeWhenAsks_WithoutSamePrice(t *testing.T) {
+func (suite *AsksTestSuite) TestWithoutSamePrice() {
 	new := [][]float64{
 		{49015, 0.08},
 		{49017, 0.001},
@@ -182,9 +192,11 @@ func TestMergeWhenAsks_WithoutSamePrice(t *testing.T) {
 		{49043, 0.8139},
 	}
 
-	t.Run("it should be successfully merged", func(t *testing.T) {
-		if got := *Merge(originalForAsks, new, "asks"); !reflect.DeepEqual(got, expectation) {
-			t.Errorf("Merge() = %v, want %v", got, expectation)
-		}
-	})
+	got := *Merge(suite.original, new, "asks")
+	result := reflect.DeepEqual(got, expectation)
+	assert.Equal(suite.T(), result, true)
+}
+
+func TestMergeWhenAsksTestSuite(t *testing.T) {
+	suite.Run(t, new(AsksTestSuite))
 }
