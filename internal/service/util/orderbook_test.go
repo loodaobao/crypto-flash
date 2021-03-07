@@ -63,7 +63,7 @@ func (suite *BidsTestSuite) TestWithNormalCase() {
 		{48967, 36.2488},
 	}
 
-	got := *Merge(suite.original, new, "bids")
+	got := *MergeOrderbook(suite.original, new, "bids")
 	result := reflect.DeepEqual(got, expectation)
 	assert.Equal(suite.T(), result, true)
 }
@@ -88,7 +88,7 @@ func (suite *BidsTestSuite) TestWithZeroCase() {
 		{48967, 36.2488},
 	}
 
-	got := *Merge(suite.original, new, "bids")
+	got := *MergeOrderbook(suite.original, new, "bids")
 	result := reflect.DeepEqual(got, expectation)
 	assert.Equal(suite.T(), result, true)
 }
@@ -110,13 +110,9 @@ func (suite *BidsTestSuite) TestWithoutSamePrice() {
 		{49000, 0.24},
 	}
 
-	got := *Merge(suite.original, new, "bids")
+	got := *MergeOrderbook(suite.original, new, "bids")
 	result := reflect.DeepEqual(got, expectation)
 	assert.Equal(suite.T(), result, true)
-}
-
-func TestMergeWhenBidsTestSuite(t *testing.T) {
-	suite.Run(t, new(BidsTestSuite))
 }
 
 func (suite *AsksTestSuite) TestWithNormalCase() {
@@ -140,7 +136,7 @@ func (suite *AsksTestSuite) TestWithNormalCase() {
 		{49081, 0.001},
 	}
 
-	got := *Merge(suite.original, new, "asks")
+	got := *MergeOrderbook(suite.original, new, "asks")
 	result := reflect.DeepEqual(got, expectation)
 	assert.Equal(suite.T(), result, true)
 }
@@ -167,7 +163,7 @@ func (suite *AsksTestSuite) TestWithZeroCase() {
 		{49081, 0.001},
 	}
 
-	got := *Merge(suite.original, new, "asks")
+	got := *MergeOrderbook(suite.original, new, "asks")
 	result := reflect.DeepEqual(got, expectation)
 	assert.Equal(suite.T(), result, true)
 }
@@ -192,11 +188,15 @@ func (suite *AsksTestSuite) TestWithoutSamePrice() {
 		{49043, 0.8139},
 	}
 
-	got := *Merge(suite.original, new, "asks")
+	got := *MergeOrderbook(suite.original, new, "asks")
 	result := reflect.DeepEqual(got, expectation)
 	assert.Equal(suite.T(), result, true)
 }
 
-func TestMergeWhenAsksTestSuite(t *testing.T) {
+func TestMergeOrderbookWhenBidsTestSuite(t *testing.T) {
+	suite.Run(t, new(BidsTestSuite))
+}
+
+func TestMergeOrderbookWhenAsksTestSuite(t *testing.T) {
 	suite.Run(t, new(AsksTestSuite))
 }

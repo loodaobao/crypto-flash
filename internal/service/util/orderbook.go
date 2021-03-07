@@ -34,7 +34,7 @@ func (ob *Orderbook) GetMarketSellPrice() (float64, error) {
 	return ob.Bids[0].Price, nil
 }
 
-func Merge(original []Row, new [][]float64, orderbookType string) *[]Row {
+func MergeOrderbook(original []Row, new [][]float64, orderbookType string) *[]Row {
 	var convertNewObj []Row
 	for _, elem := range new {
 		// Filter size = 0

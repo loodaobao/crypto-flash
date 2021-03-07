@@ -194,14 +194,14 @@ func Connect(ctx context.Context, ch chan Response, channel string, symbols []st
 				}
 
 				// Sort of Bids
-				OrderbookRes[res.Symbol].Bids = *util.Merge(
+				OrderbookRes[res.Symbol].Bids = *util.MergeOrderbook(
 					OrderbookRes[res.Symbol].Bids,
 					res.Orderbook.Bids,
 					"bids",
 				)
 
 				// Sort of Asks
-				OrderbookRes[res.Symbol].Asks = *util.Merge(
+				OrderbookRes[res.Symbol].Asks = *util.MergeOrderbook(
 					OrderbookRes[res.Symbol].Asks,
 					res.Orderbook.Asks,
 					"asks",
