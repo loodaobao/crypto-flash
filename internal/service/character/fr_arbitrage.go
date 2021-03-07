@@ -56,7 +56,7 @@ type FRArb struct {
 	startBuySellSpreadRate    float64
 	startFutureSpotSpreadRate float64
 	stopFutureSpotSpreadRate  float64
-	increaseSizeThreshold     float64
+	increaseSizeTimes         float64
 	prevRateDays              int64
 	minAmount                 float64
 	freeBalanceAllocateRate   float64
@@ -97,11 +97,11 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string, orderbooks ma
 		startBuySellSpreadRate: 0.01,
 		// future spot spread should be larger to start position
 		// start - stop should > fee (0.0007 * 4)
-		startFutureSpotSpreadRate: 0.003,
+		startFutureSpotSpreadRate: 0.0035,
 		// future spot spread should be smaller to stop position
 		stopFutureSpotSpreadRate: 0,
-		// increase size if inner spread is getting larger
-		increaseSizeThreshold: 0.0005,
+		// increase size if inner spread is getting k times larger
+		increaseSizeTimes: 2,
 		// previous data we used to calculate avgAPR
 		prevRateDays: 7,
 		// minimum USD amount to start a pair (perp + quarter)
@@ -219,12 +219,11 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 	if err == nil {
 		//util.Info(fra.tag, fmt.Sprintf("%s inner spread rate %.4f\n", future.name, innerSpreadRate))
 		canPerfectLeverage := nextFundingRate < 0 || future.isCollaterable
-		// TODO: shouldIncreaseSize
 		shouldStart = future.size == 0 && nextFundingAPR >= fra.startAPRThreshold &&
 			innerSpreadRate >= fra.startFutureSpotSpreadRate && canPerfectLeverage
 		enterSpreadRate := fra.calculateEnterSpreadRate(future)
 		shouldIncrease := future.size != 0 && nextFundingAPR >= fra.startAPRThreshold &&
-			innerSpreadRate-enterSpreadRate >= fra.increaseSizeThreshold && canPerfectLeverage
+			innerSpreadRate >= enterSpreadRate*fra.increaseSizeTimes && canPerfectLeverage
 		if shouldStart || shouldIncrease {
 			allocatedBalance := fra.freeBalance * fra.freeBalanceAllocateRate
 			size := allocatedBalance / 2 * fra.leverage
