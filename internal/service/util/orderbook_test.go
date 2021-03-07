@@ -72,12 +72,12 @@ func (suite *BidsTestSuite) TestWithZeroCase() {
 	new := [][]float64{
 		{49017, 0.3671},
 		{49008, 0.007},
-		{49006, 0}, // original has 48955 price
+		{49006, 0}, // original has 49006 price
 		{48988, 0.848},
-		{48984, 0}, // original does not have 48955 price
+		{48984, 0}, // original does not have 48984 price
 		{48967, 36.2488},
 		{48955, 0}, // original does not have 48955 price
-		{48964, 0}, // original does not have 48955 price
+		{48964, 0}, // original does not have 48964 price
 	}
 
 	expectation := []Row{

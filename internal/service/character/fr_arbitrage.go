@@ -8,7 +8,6 @@ package character
 import (
 	"fmt"
 	"math"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -50,8 +49,6 @@ type FRArb struct {
 	orderbooks map[string]*util.Orderbook
 	// strategy config
 	quarterContractName       string
-	updatePeriod              int64
-	reportPeriod              int64
 	blacklistFutureNames      []string
 	leverage                  float64
 	longTime                  int
@@ -64,8 +61,9 @@ type FRArb struct {
 	minAmount                 float64
 	freeBalanceAllocateRate   float64
 	// data
-	freeBalance float64
-	futures     map[string]*future
+	freeBalance            float64
+	futures                map[string]*future
+	startFuturesInThisHour map[string]bool
 }
 
 func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string, orderbooks map[string]*util.Orderbook) *FRArb {
@@ -85,11 +83,7 @@ func NewFRArb(ftx *exchange.FTX, notifier *Notifier, owner string, orderbooks ma
 		ftx:        ftx,
 		orderbooks: orderbooks,
 		// config
-		quarterContractName: "0326",
-		// period of main loop in minute
-		updatePeriod: 30,
-		// period of report in hour
-		reportPeriod:         1,
+		quarterContractName:  "0326",
 		blacklistFutureNames: []string{},
 		// perp and quarter have 1/2 pairPortion and leverage
 		leverage: 5,
@@ -135,26 +129,46 @@ func (fra *FRArb) Backtest(startTime, endTime int64) float64 {
 	return 0
 }
 func (fra *FRArb) getOrderbook(marketPair string) *util.Orderbook {
-	return fra.ftx.GetOrderbook(marketPair, 1)
-	//return fra.orderbooks[marketPair]
+	// restful
+	//return fra.ftx.GetOrderbook(marketPair, 1)
+	// ws
+	return fra.orderbooks[marketPair]
 }
-func (fra *FRArb) calculateSpreadRate(marketPair string) float64 {
+func (fra *FRArb) calculateSpreadRate(marketPair string) (float64, error) {
 	ob := fra.getOrderbook(marketPair)
-	sellPrice, _ := ob.GetMarketSellPrice()
-	buyPrice, _ := ob.GetMarketBuyPrice()
-	return (sellPrice - buyPrice) / buyPrice
+	sellPrice, err := ob.GetMarketSellPrice()
+	if err != nil {
+		return -1, err
+	}
+	buyPrice, err := ob.GetMarketBuyPrice()
+	if err != nil {
+		return -1, err
+	}
+	return (sellPrice - buyPrice) / buyPrice, nil
 }
-func (fra *FRArb) calculateInnerSpreadRate(highOrderbook, lowOrderbook *util.Orderbook) float64 {
+func (fra *FRArb) calculateInnerSpreadRate(highOrderbook, lowOrderbook *util.Orderbook) (float64, error) {
 	// high pair is the one we want to short
-	highPrice, _ := highOrderbook.GetMarketSellPrice()
-	lowPrice, _ := lowOrderbook.GetMarketBuyPrice()
-	return (highPrice - lowPrice) / lowPrice
+	highPrice, err := highOrderbook.GetMarketSellPrice()
+	if err != nil {
+		return -1, err
+	}
+	lowPrice, err := lowOrderbook.GetMarketBuyPrice()
+	if err != nil {
+		return -1, err
+	}
+	return (highPrice - lowPrice) / lowPrice, nil
 }
-func (fra *FRArb) calculateOuterSpreadRate(highOrderbook, lowOrderbook *util.Orderbook) float64 {
+func (fra *FRArb) calculateOuterSpreadRate(highOrderbook, lowOrderbook *util.Orderbook) (float64, error) {
 	// high pair is the one we want to buy back
-	highPrice, _ := highOrderbook.GetMarketBuyPrice()
-	lowPrice, _ := lowOrderbook.GetMarketSellPrice()
-	return (highPrice - lowPrice) / lowPrice
+	highPrice, err := highOrderbook.GetMarketBuyPrice()
+	if err != nil {
+		return -1, err
+	}
+	lowPrice, err := lowOrderbook.GetMarketSellPrice()
+	if err != nil {
+		return -1, err
+	}
+	return (highPrice - lowPrice) / lowPrice, nil
 }
 func (fra *FRArb) calculateEnterSpreadRate(future *future) float64 {
 	if future.size == 0 {
@@ -173,45 +187,49 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 	}
 	highOrderbook := fra.getOrderbook(highPair)
 	lowOrderbook := fra.getOrderbook(lowPair)
-	outerSpreadRate := fra.calculateOuterSpreadRate(highOrderbook, lowOrderbook)
-	util.Info(fra.tag, fmt.Sprintf("%s outer spread rate: %.4f", future.name, outerSpreadRate))
-	nextFundingAPR := fra.fundingRateToAPR(nextFundingRate)
+	outerSpreadRate, err := fra.calculateOuterSpreadRate(highOrderbook, lowOrderbook)
 	shouldStop, shouldStart := false, false
-	curNextFundingAPR := 0.0
-	if future.size*nextFundingRate > 0 {
-		curNextFundingAPR = -nextFundingAPR
-	} else if future.size*nextFundingRate < 0 {
-		curNextFundingAPR = nextFundingAPR
-	}
-	shouldStop = future.size != 0 && curNextFundingAPR < fra.stopAPRThreshold &&
-		outerSpreadRate <= fra.stopFutureSpotSpreadRate
-	if shouldStop {
-		fra.stopPair(future)
-		stopReason := "funding rate not profitable" // please update when shouldStop logic change
-		if outerSpreadRate <= fra.stopFutureSpotSpreadRate {
-			stopReason = "outer spread smaller than threshold"
+	nextFundingAPR := fra.fundingRateToAPR(nextFundingRate)
+	if err == nil {
+		//util.Info(fra.tag, fmt.Sprintf("%s outer spread rate: %.4f", future.name, outerSpreadRate))
+		curNextFundingAPR := 0.0
+		if future.size*nextFundingRate > 0 {
+			curNextFundingAPR = -nextFundingAPR
+		} else if future.size*nextFundingRate < 0 {
+			curNextFundingAPR = nextFundingAPR
 		}
-		msg := fmt.Sprintf("not profitable: %s\nstop reason: %s\nnextFundingRate: %f",
-			future.name, stopReason, future.nextFundingRate)
-		util.Info(fra.tag, msg)
-		fra.send(msg)
-		return shouldStop, shouldStart
+		shouldStop = future.size != 0 && curNextFundingAPR < fra.stopAPRThreshold &&
+			outerSpreadRate <= fra.stopFutureSpotSpreadRate
+		if shouldStop {
+			fra.stopPair(future)
+			stopReason := "funding rate not profitable" // please update when shouldStop logic change
+			if outerSpreadRate <= fra.stopFutureSpotSpreadRate {
+				stopReason = "outer spread smaller than threshold"
+			}
+			msg := fmt.Sprintf("not profitable: %s\nstop reason: %s\nnextFundingRate: %f",
+				future.name, stopReason, future.nextFundingRate)
+			util.Info(fra.tag, msg)
+			fra.send(msg)
+			return shouldStop, shouldStart
+		}
 	}
-	innerSpreadRate := fra.calculateInnerSpreadRate(highOrderbook, lowOrderbook)
-	util.Info(fra.tag, fmt.Sprintf("%s inner spread rate %.4f\n", future.name, innerSpreadRate))
-	canPerfectLeverage := nextFundingRate < 0 || future.isCollaterable
-	// TODO: change this to shouldIncreaseSize and use increasePairSize
-	shouldStart = future.size == 0 && nextFundingAPR >= fra.startAPRThreshold &&
-		innerSpreadRate >= fra.startFutureSpotSpreadRate && canPerfectLeverage
-	if shouldStart {
-		allocatedBalance := fra.freeBalance * fra.freeBalanceAllocateRate
-		size := allocatedBalance / 2 * fra.leverage
-		fra.startPair(future, size)
-		fra.freeBalance -= allocatedBalance
-		msg := fmt.Sprintf("profitable: %s\navgAPR: %.2f%%\nnextFundingRate: %f",
-			future.name, future.avgAPR*100, future.nextFundingRate)
-		util.Info(fra.tag, msg)
-		fra.send(msg)
+	innerSpreadRate, err := fra.calculateInnerSpreadRate(highOrderbook, lowOrderbook)
+	if err == nil {
+		//util.Info(fra.tag, fmt.Sprintf("%s inner spread rate %.4f\n", future.name, innerSpreadRate))
+		canPerfectLeverage := nextFundingRate < 0 || future.isCollaterable
+		// TODO: change this to shouldIncreaseSize and use increasePairSize
+		shouldStart = future.size == 0 && nextFundingAPR >= fra.startAPRThreshold &&
+			innerSpreadRate >= fra.startFutureSpotSpreadRate && canPerfectLeverage
+		if shouldStart {
+			allocatedBalance := fra.freeBalance * fra.freeBalanceAllocateRate
+			size := allocatedBalance / 2 * fra.leverage
+			fra.startPair(future, size)
+			fra.freeBalance -= allocatedBalance
+			msg := fmt.Sprintf("profitable: %s\navgAPR: %.2f%%\nnextFundingRate: %f",
+				future.name, future.avgAPR*100, future.nextFundingRate)
+			util.Info(fra.tag, msg)
+			fra.send(msg)
+		}
 	}
 	return shouldStop, shouldStart
 }
@@ -479,98 +497,116 @@ func (fra *FRArb) GetRequiredPairs() []string {
 		pairs = append(pairs, future.perpPair)
 		pairs = append(pairs, future.spotPair)
 	}
-	//return []string{"BTC-PERP"}
 	return pairs
 }
-func (fra *FRArb) Start() {
-	value, exist := os.LookupEnv("ENV")
-	isTestEnv := exist && value == "test"
-	fra.createFutures()
-	startFuturesInThisHour := make(map[string]bool)
-	prev := time.Now().Unix()
+func (fra *FRArb) updateFundingRateProfit() {
+	// runs at 30 sec before each hour
+	beforeHourPeriod := 13 * 60
 	for {
-		fmt.Println(fra.orderbooks["BTC-PERP"].Asks)
-		fmt.Println(fra.orderbooks["BTC-PERP"].Bids)
-		now := time.Now().Unix()
-		util.Info(fra.tag, fmt.Sprintf("time used: %d second\n", now-prev))
-		prev = now
-		// TODO: check existing position every updatePeriod
-		// check spread every second
+		now := time.Now().Unix() % 3600
+		targetTime := int64(3600 - beforeHourPeriod)
+		timeToNextCycle := targetTime - now
+		if timeToNextCycle < 0 {
+			timeToNextCycle += 3600
+		}
+		sleepDuration := util.Duration{Second: timeToNextCycle}
+		time.Sleep(sleepDuration.GetTimeDuration())
 		for _, future := range fra.futures {
-			if now%(60*60) >= 1800 {
-				resp := fra.ftx.GetFutureStats(future.perpPair)
-				future.nextFundingRate = resp.NextFundingRate
+			resp := fra.ftx.GetFutureStats(future.perpPair)
+			future.nextFundingRate = resp.NextFundingRate
+			end := int(24*fra.prevRateDays - 1)
+			if end > len(future.fundingRates) {
+				end = len(future.fundingRates)
 			}
-			shouldStop, shouldStart := fra.genSignal(future)
-			if shouldStop {
-				startFuturesInThisHour[future.name] = false
-			} else if shouldStart {
-				startFuturesInThisHour[future.name] = true
+			future.fundingRates = append([]float64{future.nextFundingRate}, future.fundingRates[:end]...)
+			fundingRates := future.fundingRates
+			nextFundingAPR := fra.fundingRateToAPR(future.nextFundingRate)
+			util.Info(fra.tag, future.name, fmt.Sprintf("next funding rate: %f", future.nextFundingRate))
+			util.Info(fra.tag, future.name, fmt.Sprintf("next equivalent APR: %.2f%%", nextFundingAPR*100))
+			future.consCount = 1
+			for i := 1; i < len(fundingRates); i++ {
+				if fundingRates[i]*future.nextFundingRate <= 0 {
+					break
+				}
+				future.consCount++
+			}
+			totalRate := 0.0
+			for _, rate := range fundingRates {
+				totalRate += rate
+			}
+			toAnnual := float64(365*24) / float64(len(fundingRates))
+			future.avgAPR = math.Abs(totalRate) * toAnnual * fra.leverage / 2
+			util.Info(fra.tag, future.name, fmt.Sprintf("avgAPR: %.2f%%", future.avgAPR*100))
+		}
+		// update profit and current hedge profit
+		for name, future := range fra.futures {
+			_, isStartInThisHour := fra.startFuturesInThisHour[future.name]
+			// do not update profit if future just starts in this hour
+			if isStartInThisHour {
+				continue
+			}
+			if future.size != 0 {
+				fra.updateFutureProfit(future)
+				msg := fmt.Sprintf("earned %.2f USD on %s", future.hourlyFundingRateProfit, name)
+				util.Info(fra.tag, msg)
+				fra.send(msg)
 			}
 		}
-		// 30 seconds left to one hour, get next funding rate
-		getFundingRateOffset := 60*60 - fra.updatePeriod
-		if now%(60*60) == getFundingRateOffset || isTestEnv {
+		fra.sendFutureStatusReport()
+		fra.startFuturesInThisHour = make(map[string]bool)
+		// log rank
+		names := fra.sortAPR()
+		util.Info(fra.tag, "avgAPR Rank:")
+		for _, name := range names {
+			future := fra.futures[name]
+			msg := fmt.Sprintf(
+				"future: %s, avgAPR: %.2f%%, nextAPR: %.2f%%, consCount: %d",
+				name, future.avgAPR*100, fra.fundingRateToAPR(future.nextFundingRate)*100, future.consCount)
+			util.Info(fra.tag, msg)
+		}
+		// generate ROI report
+		fra.sendTotalROIReport()
+	}
+}
+func (fra *FRArb) updateNextFundingRates() {
+	// runs every 20 sec
+	updatePeriod := int64(20)
+	for {
+		sleepDuration := util.Duration{Second: updatePeriod}
+		time.Sleep(sleepDuration.GetTimeDuration())
+		now := time.Now().Unix() % 3600
+		if now >= 1800 {
+			util.Info(fra.tag, "updating funding rate")
 			for _, future := range fra.futures {
 				resp := fra.ftx.GetFutureStats(future.perpPair)
 				future.nextFundingRate = resp.NextFundingRate
-				end := int(24*fra.prevRateDays - 1)
-				if end > len(future.fundingRates) {
-					end = len(future.fundingRates)
-				}
-				future.fundingRates = append([]float64{future.nextFundingRate}, future.fundingRates[:end]...)
-				fundingRates := future.fundingRates
-				nextFundingAPR := fra.fundingRateToAPR(future.nextFundingRate)
-				util.Info(fra.tag, future.name, fmt.Sprintf("next funding rate: %f", future.nextFundingRate))
-				util.Info(fra.tag, future.name, fmt.Sprintf("next equivalent APR: %.2f%%", nextFundingAPR*100))
-				future.consCount = 1
-				for i := 1; i < len(fundingRates); i++ {
-					if fundingRates[i]*future.nextFundingRate <= 0 {
-						break
-					}
-					future.consCount++
-				}
-				totalRate := 0.0
-				for _, rate := range fundingRates {
-					totalRate += rate
-				}
-				toAnnual := float64(365*24) / float64(len(fundingRates))
-				future.avgAPR = math.Abs(totalRate) * toAnnual * fra.leverage / 2
-				util.Info(fra.tag, future.name, fmt.Sprintf("avgAPR: %.2f%%", future.avgAPR*100))
-			}
-			// update profit and current hedge profit
-			for name, future := range fra.futures {
-				_, isStartInThisHour := startFuturesInThisHour[future.name]
-				// do not update profit if future just starts in this hour
-				if isStartInThisHour {
-					continue
-				}
-				if future.size != 0 {
-					fra.updateFutureProfit(future)
-					msg := fmt.Sprintf("earned %.2f USD on %s", future.hourlyFundingRateProfit, name)
-					util.Info(fra.tag, msg)
-					fra.send(msg)
-				}
-			}
-			fra.sendFutureStatusReport()
-			startFuturesInThisHour = make(map[string]bool)
-			// log rank
-			names := fra.sortAPR()
-			util.Info(fra.tag, "avgAPR Rank:")
-			for _, name := range names {
-				future := fra.futures[name]
-				msg := fmt.Sprintf(
-					"future: %s, avgAPR: %.2f%%, nextAPR: %.2f%%, consCount: %d",
-					name, future.avgAPR*100, fra.fundingRateToAPR(future.nextFundingRate)*100, future.consCount)
-				util.Info(fra.tag, msg)
 			}
 		}
-		// generate roi report
-		if now%(fra.reportPeriod*60*60) == getFundingRateOffset {
-			fra.sendTotalROIReport()
+	}
+}
+func (fra *FRArb) Start() {
+	//value, exist := os.LookupEnv("ENV")
+	//isTestEnv := exist && value == "test"
+	fra.createFutures()
+	fra.startFuturesInThisHour = make(map[string]bool)
+	go fra.updateFundingRateProfit()
+	go fra.updateNextFundingRates()
+	prev := time.Now()
+	for {
+		now := time.Now()
+		duration := now.Sub(prev)
+		util.Info(fra.tag, fmt.Sprintf("time used: %s", duration))
+		prev = now
+		for _, future := range fra.futures {
+			shouldStop, shouldStart := fra.genSignal(future)
+			if shouldStop {
+				fra.startFuturesInThisHour[future.name] = false
+			} else if shouldStart {
+				fra.startFuturesInThisHour[future.name] = true
+			}
 		}
-		timeToNextCycle := fra.updatePeriod - time.Now().Unix()%fra.updatePeriod
-		sleepDuration := util.Duration{Second: timeToNextCycle}
-		time.Sleep(sleepDuration.GetTimeDuration())
+		//timeToNextCycle := fra.updatePeriod - time.Now().Unix()%fra.updatePeriod
+		//sleepDuration := util.Duration{Second: timeToNextCycle}
+		//time.Sleep(sleepDuration.GetTimeDuration())
 	}
 }
