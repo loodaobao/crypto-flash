@@ -230,8 +230,8 @@ func (fra *FRArb) genSignal(future *future) (bool, bool) {
 			size := allocatedBalance / 2 * fra.leverage
 			fra.increasePairSize(future, size)
 			fra.freeBalance -= allocatedBalance
-			msg := fmt.Sprintf("profitable: %s\navgAPR: %.2f%%\nnextAPR: %.2f%%",
-				future.name, future.avgAPR*100, nextFundingAPR*100)
+			msg := fmt.Sprintf("profitable: %s\navgAPR: %.2f%%\nnextAPR: %.2f%%\nincrease: %t",
+				future.name, future.avgAPR*100, nextFundingAPR*100, shouldIncrease)
 			util.Info(fra.tag, msg)
 			fra.send(msg)
 		}
